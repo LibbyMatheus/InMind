@@ -4,7 +4,7 @@ import requests
 # -------------------------------
 # Config & Styling
 # -------------------------------
-st.set_page_config(page_title="InMind AI", layout="centered")
+st.set_page_config(page_title="InMind", layout="centered")
 
 ACCENT = "#FDD2DC"
 
