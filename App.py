@@ -1,11 +1,10 @@
 import streamlit as st
-from openai import OpenAI
-import os
+import requests
 
 # -------------------------------
 # Config & Styling
 # -------------------------------
-st.set_page_config(page_title="InMind", layout="centered")
+st.set_page_config(page_title="InMind AI", layout="centered")
 
 ACCENT = "#FDD2DC"
 
@@ -46,65 +45,58 @@ try:
 except Exception:
     st.write("*Logo not found — upload it to your repo.*")
 
-st.title("🧠 InMind AI")
-st.write("Your conversational assistant specializing in **brain health** and general knowledge. "
+st.title("🧠 InMind AI (Free Version)")
+st.write("A free, conversational assistant built with open-source AI. "
+         "Specialized in **health and brain awareness**, but happy to chat about anything. "
          "This is **not** a diagnostic tool.")
 
 # -------------------------------
-# OpenAI Client
+# Hugging Face API
 # -------------------------------
-# API key comes from Streamlit Secrets (only you need to set it once in deployment)
-api_key = st.secrets["OPENAI_API_KEY"]
-client = OpenAI(api_key=api_key)
+HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+HF_HEADERS = {"Authorization": f"Bearer {st.secrets['HF_API_KEY']}"}
+
+def query_huggingface(prompt):
+    response = requests.post(
+        HF_API_URL,
+        headers=HF_HEADERS,
+        json={"inputs": prompt, "parameters": {"max_new_tokens": 300}}
+    )
+    if response.status_code == 200:
+        result = response.json()
+        if isinstance(result, list) and "generated_text" in result[0]:
+            return result[0]["generated_text"].strip()
+        else:
+            return "⚠️ Model returned an unexpected response."
+    else:
+        return f"⚠️ Error {response.status_code}: {response.text}"
 
 # -------------------------------
-# Conversation state
+# Conversation State
 # -------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "system", "content": (
-            "You are InMind, a supportive, trustworthy AI assistant. "
-            "You can answer general questions on any topic, but you are especially strong at health, "
-            "brain health, and neurodegenerative disease awareness. "
-            "For health questions, provide structured answers: possible causes (not diagnoses), "
-            "red flags, next steps (who to see, what tests to ask about), and what to do meanwhile. "
-            "Be clear, kind, and practical. Avoid definitive diagnoses. "
-            "Always include: 'This is not medical advice. Please consult a clinician.'"
-        )},
-        {"role": "assistant", "content": "Hi! I’m InMind. Ask me anything — I specialize in health but can chat about anything."}
+        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything — I specialize in health but can chat about anything."}
     ]
 
 # Show history
 for msg in st.session_state.messages:
-    if msg["role"] == "system":
-        continue
-    with st.chat_message(msg["role"]):
+    with st.chat_message("assistant" if msg["role"] == "assistant" else "user"):
         st.markdown(msg["content"])
 
 # -------------------------------
-# Chat input → OpenAI
+# Chat Input
 # -------------------------------
 if prompt := st.chat_input("Type your question here..."):
-    # User msg
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # AI reply
-    try:
-        resp = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=st.session_state.messages,
-            temperature=0.7,
-            max_tokens=600,
-        )
-        reply = resp.choices[0].message.content.strip()
-    except Exception as e:
-        reply = f"⚠️ Error: {e}"
+    reply = query_huggingface(prompt)
 
+    st.session_state.messages.append({"role": "assistant", "content": reply})
     with st.chat_message("assistant"):
         st.markdown(reply)
-    st.session_state.messages.append({"role": "assistant", "content": reply})
 
 # -------------------------------
 # Disclaimer
