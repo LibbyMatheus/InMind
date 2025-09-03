@@ -3,18 +3,12 @@ from openai import OpenAI
 import os
 
 # -------------------------------
-# Setup OpenAI API
+# Config & Styling
 # -------------------------------
-# IMPORTANT: You’ll need to set your OpenAI API key in Streamlit Cloud
-# Go to Settings > Secrets and add: OPENAI_API_KEY="your_api_key_here"
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+st.set_page_config(page_title="InMind", layout="centered")
 
-# -------------------------------
-# Page Setup
-# -------------------------------
-st.set_page_config(page_title="InMind AI", layout="centered")
+ACCENT = "#FDD2DC"
 
-# Custom Styling
 st.markdown(
     f"""
     <style>
@@ -27,19 +21,17 @@ st.markdown(
         text-align: center;
         font-family: 'Helvetica Neue', sans-serif;
     }}
-    .stChatMessage {{
-        font-size: 1.05em;
-        line-height: 1.6;
+    a, .accent {{ color: {ACCENT}; }}
+    .stChatMessage {{ font-size: 1.05em; line-height: 1.6; }}
+    .footer {{ font-size: 0.8em; text-align: center; color: #888888; margin-top: 3em; }}
+    /* Tweak text input border to accent */
+    div[data-baseweb="base-input"] > div {{
+        border-color: {ACCENT} !important;
     }}
-    .accent {{
-        color: #FDD2DC;
-        font-weight: bold;
-    }}
-    .footer {{
-        font-size: 0.8em;
-        text-align: center;
-        color: #888888;
-        margin-top: 3em;
+    button[kind="primary"] {{
+        background: {ACCENT} !important;
+        color: #000 !important;
+        border-radius: 8px !important;
     }}
     </style>
     """,
@@ -47,68 +39,79 @@ st.markdown(
 )
 
 # -------------------------------
-# Branding
+# Branding (upload your logo to the repo root)
+# Make sure the filename matches exactly:
+#   40AC5C5C-6240-4E68-A3BB-4FEC1401B99C.jpeg
+# Or rename it to 'logo.png' and change the line below.
 # -------------------------------
-st.image("40AC5C5C-6240-4E68-A3BB-4FEC1401B99C.jpeg", width=200)
+LOGO_PATH = "40AC5C5C-6240-4E68-A3BB-4FEC1401B99C.jpeg"
+try:
+    st.image(LOGO_PATH, width=200)
+except Exception:
+    st.write(f"*Logo file not found: `{LOGO_PATH}`. Upload it to your repo or update `LOGO_PATH`.*")
+
 st.title("🧠 InMind AI")
-st.write("Your conversational assistant, specializing in **health and neuroscience**. Not a diagnostic tool.")
+st.write("A conversational assistant that can chat about anything, with a focus on **health and neuroscience**. This is **not** a diagnostic tool.")
 
 # -------------------------------
-# Session State
+# OpenAI client (with clear error if key missing)
+# -------------------------------
+api_key = st.secrets.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
+if not api_key:
+    st.error("Missing OpenAI API key. In Streamlit Cloud, go to Settings → Secrets and set OPENAI_API_KEY.")
+    st.stop()
+
+client = OpenAI(api_key=api_key)
+
+# -------------------------------
+# Conversation state
 # -------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything — I specialize in health but can chat about anything."}
+        {"role": "system", "content": (
+            "You are InMind, a supportive, trustworthy AI assistant. "
+            "You can answer general questions on any topic, but you are especially strong at health, "
+            "brain health, and neurodegenerative disease awareness. "
+            "For health questions, provide structured answers: possible causes (not diagnoses), "
+            "red flags, next steps (who to see, what tests to ask about), and what to do meanwhile. "
+            "Be clear, kind, and practical. Avoid definitive diagnoses. "
+            "Always include: 'This is not medical advice. Please consult a clinician.'"
+        )},
+        {"role": "assistant", "content": "Hi! I’m InMind. Ask me anything — I specialize in health but can chat about anything."}
     ]
 
-# -------------------------------
-# Display Chat History
-# -------------------------------
+# Show history
 for msg in st.session_state.messages:
+    if msg["role"] == "system":
+        continue
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # -------------------------------
-# User Input
+# Chat input → OpenAI
 # -------------------------------
-if prompt := st.chat_input("Type your question here..."):
-    # Save user message
+prompt = st.chat_input("Type your question here...")
+if prompt:
+    # Show + store user message
     st.session_state.messages.append({"role": "user", "content": prompt})
-
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # -------------------------------
-    # OpenAI API Call
-    # -------------------------------
+    # Call OpenAI
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Lightweight and fast model
-            messages=[
-                {"role": "system", "content": (
-                    "You are InMind, a supportive, trustworthy AI assistant. "
-                    "You can answer general questions, but you are especially good at health, brain health, "
-                    "and neurodegenerative disease awareness. "
-                    "For health questions, provide structured answers: possible causes, next steps, and what to do meanwhile. "
-                    "Always include a disclaimer: 'This is not medical advice. Please consult a doctor.'"
-                )},
-                *st.session_state.messages
-            ],
-            max_tokens=400,
-            temperature=0.7
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",      # fast, capable model; change if you prefer
+            messages=st.session_state.messages,
+            temperature=0.7,
+            max_tokens=600,
         )
-
-        reply = response.choices[0].message.content.strip()
-
+        reply = resp.choices[0].message.content.strip()
     except Exception as e:
-        reply = f"⚠️ Error: {e}"
+        reply = f"⚠️ Could not generate a reply: {e}"
 
-    # -------------------------------
-    # Show Assistant Reply
-    # -------------------------------
+    # Show + store assistant reply
     with st.chat_message("assistant"):
         st.markdown(reply)
-
     st.session_state.messages.append({"role": "assistant", "content": reply})
 
 # -------------------------------
@@ -116,6 +119,6 @@ if prompt := st.chat_input("Type your question here..."):
 # -------------------------------
 st.markdown("---")
 st.markdown(
-    "<div class='footer'>Disclaimer: InMind AI is for educational purposes only and does not provide medical diagnoses. Always consult a healthcare professional for medical advice.</div>",
+    "<div class='footer'>Disclaimer: InMind AI is for educational purposes only and does not provide medical diagnoses. Always consult a licensed healthcare professional for medical advice.</div>",
     unsafe_allow_html=True
 )
