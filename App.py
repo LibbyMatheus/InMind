@@ -24,7 +24,6 @@ st.markdown(
     a, .accent {{ color: {ACCENT}; }}
     .stChatMessage {{ font-size: 1.05em; line-height: 1.6; }}
     .footer {{ font-size: 0.8em; text-align: center; color: #888888; margin-top: 3em; }}
-    /* Tweak text input border to accent */
     div[data-baseweb="base-input"] > div {{
         border-color: {ACCENT} !important;
     }}
@@ -39,28 +38,23 @@ st.markdown(
 )
 
 # -------------------------------
-# Branding (upload your logo to the repo root)
-# Make sure the filename matches exactly:
-#   40AC5C5C-6240-4E68-A3BB-4FEC1401B99C.jpeg
-# Or rename it to 'logo.png' and change the line below.
+# Branding
 # -------------------------------
 LOGO_PATH = "40AC5C5C-6240-4E68-A3BB-4FEC1401B99C.jpeg"
 try:
     st.image(LOGO_PATH, width=200)
 except Exception:
-    st.write(f"*Logo file not found: `{LOGO_PATH}`. Upload it to your repo or update `LOGO_PATH`.*")
+    st.write("*Logo not found — upload it to your repo.*")
 
 st.title("🧠 InMind AI")
-st.write("A conversational assistant that can chat about anything, with a focus on **health and neuroscience**. This is **not** a diagnostic tool.")
+st.write("Your conversational assistant specializing in **brain health** and general knowledge. "
+         "This is **not** a diagnostic tool.")
 
 # -------------------------------
-# OpenAI client (with clear error if key missing)
+# OpenAI Client
 # -------------------------------
-api_key = st.secrets.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
-if not api_key:
-    st.error("Missing OpenAI API key. In Streamlit Cloud, go to Settings → Secrets and set OPENAI_API_KEY.")
-    st.stop()
-
+# API key comes from Streamlit Secrets (only you need to set it once in deployment)
+api_key = st.secrets["OPENAI_API_KEY"]
 client = OpenAI(api_key=api_key)
 
 # -------------------------------
@@ -90,26 +84,24 @@ for msg in st.session_state.messages:
 # -------------------------------
 # Chat input → OpenAI
 # -------------------------------
-prompt = st.chat_input("Type your question here...")
-if prompt:
-    # Show + store user message
+if prompt := st.chat_input("Type your question here..."):
+    # User msg
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Call OpenAI
+    # AI reply
     try:
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",      # fast, capable model; change if you prefer
+            model="gpt-4o-mini",
             messages=st.session_state.messages,
             temperature=0.7,
             max_tokens=600,
         )
         reply = resp.choices[0].message.content.strip()
     except Exception as e:
-        reply = f"⚠️ Could not generate a reply: {e}"
+        reply = f"⚠️ Error: {e}"
 
-    # Show + store assistant reply
     with st.chat_message("assistant"):
         st.markdown(reply)
     st.session_state.messages.append({"role": "assistant", "content": reply})
