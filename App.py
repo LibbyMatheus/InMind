@@ -39,15 +39,14 @@ st.markdown(
 # -------------------------------
 # Branding
 # -------------------------------
-LOGO_PATH = "40AC5C5C-6240-4E68-A3BB-4FEC1401B99C.jpeg"
+LOGO_PATH = "LOGO_PATH.PNG"
 try:
     st.image(LOGO_PATH, width=200)
 except Exception:
     st.write("*Logo not found — upload it to your repo.*")
 
-st.title("🧠 InMind AI (Free Version)")
-st.write("A free, conversational assistant built with open-source AI. "
-         "Specialized in **health and brain awareness**, but happy to chat about anything. "
+st.title("InMind")
+st.write("A free, conversational assistant specialized in **health and brain awareness**. ")
          "This is **not** a diagnostic tool.")
 
 # -------------------------------
