@@ -47,8 +47,7 @@ except Exception:
 
 st.title("InMind")
 st.write("A free, conversational assistant specialized in **health and brain awareness**. ")
-         "This is **not** a diagnostic tool.")
-
+         "This is **not** a diagnostic tool."
 # -------------------------------
 # Hugging Face API
 # -------------------------------
