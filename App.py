@@ -46,8 +46,10 @@ except Exception:
     st.write("*Logo not found — upload it to your repo.*")
 
 st.title("InMind")
-st.write("A free, conversational assistant specialized in **health and brain awareness**. ")
-         "This is **not** a diagnostic tool."
+st.write(
+    "A free, conversational assistant specialized in **health and brain awareness**. "
+    "This is **not** a diagnostic tool."
+)
 # -------------------------------
 # Hugging Face API
 # -------------------------------
