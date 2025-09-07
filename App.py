@@ -40,7 +40,9 @@ st.markdown(
 # Branding
 # -------------------------------
 LOGO_PATH = "LOGO_PATH.PNG"
-st.image("LOGO_PATH.PNG", use_column_width=True)
+
+try:
+    st.image(LOGO_PATH, use_column_width=True)
 except Exception:
     st.write("*Logo not found — upload it to your repo.*")
 st.write(
