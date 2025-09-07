@@ -41,7 +41,7 @@ st.markdown(
 # -------------------------------
 LOGO_PATH = "LOGO_PATH.PNG"
 try:
-st.image("inmind_logo.jpeg", use_column_width=True)
+st.image("LOGO_PATH.PNG", use_column_width=True)
 except Exception:
     st.write("*Logo not found — upload it to your repo.*")
 st.write(
