@@ -39,7 +39,7 @@ st.markdown(
 # -------------------------------
 # Branding
 # -------------------------------
-LOGO_PATH = "LOGO_PATH.PNG"
+LOGO_PATH = "LOGO_PATH.png"
 
 try:
     st.image(LOGO_PATH, use_column_width=True)
