@@ -45,8 +45,13 @@ try:
     st.image(LOGO_PATH, use_container_width=True)
 except Exception:
     st.write("*Logo not found — upload it to your repo.*")
-st.write(
-    "A free, conversational assistant specialized in **health and brain awareness**. "
+st.markdown(
+    """
+    <div style="text-align: center; font-size:18px;">
+        A free, conversational assistant.</b>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 # -------------------------------
 # Hugging Face API
