@@ -42,7 +42,14 @@ st.markdown(
 LOGO_PATH = "LOGO_PATH.png"
 
 try:
-    st.image(LOGO_PATH, width=250)
+    st.markdown(
+    f"""
+    <div style="text-align: center;">
+        <img src="{LOGO_PATH}"  alt="Logo" width="200">
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 except Exception:
     st.write("*Logo not found — upload it to your repo.*")
 st.markdown(
