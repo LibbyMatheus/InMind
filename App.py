@@ -42,12 +42,11 @@ st.markdown(
 LOGO_PATH = "LOGO_PATH.png"
 
 try:
-    st.image(LOGO_PATH, use_column_width=True)
+    st.image(LOGO_PATH, use_container_width=True)
 except Exception:
     st.write("*Logo not found — upload it to your repo.*")
 st.write(
     "A free, conversational assistant specialized in **health and brain awareness**. "
-    "This is **not** a diagnostic tool."
 )
 # -------------------------------
 # Hugging Face API
@@ -75,7 +74,7 @@ def query_huggingface(prompt):
 # -------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything — I specialize in health but can chat about anything."}
+        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything!"}
     ]
 
 # Show history
