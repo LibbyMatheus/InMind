@@ -45,7 +45,7 @@ try:
     st.markdown(
     f"""
     <div style="text-align: center;">
-        <img src="{LOGO_PATH}"  alt="Logo" width="200">
+        <img src="{LOGO_PATH}"  alt="Logo" width="250">
     </div>
     """,
     unsafe_allow_html=True
