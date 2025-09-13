@@ -42,7 +42,7 @@ st.markdown(
 LOGO_PATH = "LOGO_PATH.png"
 
 try:
-    st.image(LOGO_PATH, use_container_width=True)
+    st.image(LOGO_PATH, width=300)
 except Exception:
     st.write("*Logo not found — upload it to your repo.*")
 st.markdown(
