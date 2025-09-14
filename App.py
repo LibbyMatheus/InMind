@@ -41,20 +41,12 @@ st.markdown(
 # -------------------------------
 LOGO_PATH = "LOGO_PATH.png"
 
-try:
-    st.image(LOGO_PATH, width=200)
-
-except Exception:
-    st.write("*Logo not found — upload it to your repo.*")
-
 st.markdown(
-    """
-    <style>
-    [data-testid="stImage"] {
-        display: flex;
-        justify-content: center;
-    }
-    </style>
+    f"""
+    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 10px;">
+        <img src="https://raw.githubusercontent.com/libbymatheus/InMind/main/LOGO_PATH.png" 
+             alt="InMind Logo" width="200">
+    </div>
     """,
     unsafe_allow_html=True
 )
