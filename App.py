@@ -42,7 +42,7 @@ st.markdown(
 LOGO_PATH = "LOGO_PATH.png"
 
 try:
-    st.image(
+    st.markdown(
     f"""
     <div style="text-align: center;">
         <img src="{LOGO_PATH}"  alt="Logo" width="250">
