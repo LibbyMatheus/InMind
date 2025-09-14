@@ -43,6 +43,10 @@ LOGO_PATH = "LOGO_PATH.png"
 
 try:
     st.image(LOGO_PATH, width=200)
+
+except Exception:
+    st.write("*Logo not found — upload it to your repo.*")
+
 st.markdown(
     """
     <style>
@@ -54,8 +58,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-except Exception:
-    st.write("*Logo not found — upload it to your repo.*")
+
 st.markdown(
     """
     <div style="text-align: center; font-size:18px;">
