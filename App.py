@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+from datetime import datetime
 
 # -------------------------------
 # Config & Styling
@@ -59,10 +60,11 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 # -------------------------------
 # Hugging Face API
 # -------------------------------
-HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"  # Free option
 HF_HEADERS = {"Authorization": f"Bearer {st.secrets['HF_API_KEY']}"}
 
 def query_huggingface(prompt):
@@ -73,7 +75,9 @@ def query_huggingface(prompt):
     )
     if response.status_code == 200:
         result = response.json()
-        if isinstance(result, list) and "generated_text" in result[0]:
+        if isinstance(result, dict) and "generated_text" in result:
+            return result["generated_text"].strip()
+        elif isinstance(result, list) and "generated_text" in result[0]:
             return result[0]["generated_text"].strip()
         else:
             return "⚠️ Model returned an unexpected response."
@@ -85,7 +89,7 @@ def query_huggingface(prompt):
 # -------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything!"}
+        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything!", "time": datetime.now()}
     ]
 
 # Show history
@@ -97,21 +101,46 @@ for msg in st.session_state.messages:
 # Chat Input
 # -------------------------------
 if prompt := st.chat_input("Type your question here..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    st.session_state.messages.append({"role": "user", "content": prompt, "time": datetime.now()})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     reply = query_huggingface(prompt)
 
-    st.session_state.messages.append({"role": "assistant", "content": reply})
+    st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
     with st.chat_message("assistant"):
         st.markdown(reply)
 
 # -------------------------------
-# Disclaimer
+# Disclaimer, Download, Clear Chat
 # -------------------------------
 st.markdown("---")
 st.markdown(
     "<div class='footer'>Disclaimer: InMind AI is for educational purposes only and does not provide medical diagnoses. Always consult a licensed healthcare professional for medical advice.</div>",
     unsafe_allow_html=True
 )
+
+# Download chat history (formatted transcript)
+if st.session_state.get("messages"):
+    transcript = "InMind Chat Transcript\n"
+    transcript += f"Session started: {st.session_state.messages[0]['time'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+    transcript += "-" * 40 + "\n\n"
+
+    for m in st.session_state.messages:
+        timestamp = m["time"].strftime("%H:%M:%S")
+        speaker = "You" if m["role"] == "user" else "InMind"
+        transcript += f"[{timestamp}] {speaker}: {m['content']}\n\n"
+
+    st.download_button(
+        label="📥 Download Chat History",
+        data=transcript,
+        file_name="inmind_chat.txt",
+        mime="text/plain"
+    )
+
+# Clear chat
+if st.button("🗑️ Clear Chat"):
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything!", "time": datetime.now()}
+    ]
+    st.experimental_rerun()
