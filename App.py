@@ -1,8 +1,5 @@
 import streamlit as st
 import requests
-from datetime import datetime
-from io import BytesIO
-from docx import Document
 
 # -------------------------------
 # Config & Styling
@@ -42,8 +39,6 @@ st.markdown(
 # -------------------------------
 # Branding
 # -------------------------------
-LOGO_PATH = "LOGO_PATH.png"
-
 st.markdown(
     f"""
     <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 10px;">
@@ -64,9 +59,9 @@ st.markdown(
 )
 
 # -------------------------------
-# Hugging Face API (free model)
+# Hugging Face API
 # -------------------------------
-HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
+HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
 HF_HEADERS = {"Authorization": f"Bearer {st.secrets['HF_API_KEY']}"}
 
 def query_huggingface(prompt):
@@ -77,9 +72,7 @@ def query_huggingface(prompt):
     )
     if response.status_code == 200:
         result = response.json()
-        if isinstance(result, dict) and "generated_text" in result:
-            return result["generated_text"].strip()
-        elif isinstance(result, list) and "generated_text" in result[0]:
+        if isinstance(result, list) and "generated_text" in result[0]:
             return result[0]["generated_text"].strip()
         else:
             return "⚠️ Model returned an unexpected response."
@@ -91,7 +84,7 @@ def query_huggingface(prompt):
 # -------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything!", "time": datetime.now()}
+        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything!"}
     ]
 
 # Show history
@@ -103,69 +96,21 @@ for msg in st.session_state.messages:
 # Chat Input
 # -------------------------------
 if prompt := st.chat_input("Type your question here..."):
-    st.session_state.messages.append({"role": "user", "content": prompt, "time": datetime.now()})
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     reply = query_huggingface(prompt)
 
-    st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+    st.session_state.messages.append({"role": "assistant", "content": reply})
     with st.chat_message("assistant"):
         st.markdown(reply)
 
 # -------------------------------
-# Disclaimer, Download, Clear Chat
+# Disclaimer
 # -------------------------------
 st.markdown("---")
 st.markdown(
     "<div class='footer'>Disclaimer: InMind AI is for educational purposes only and does not provide medical diagnoses. Always consult a licensed healthcare professional for medical advice.</div>",
     unsafe_allow_html=True
 )
-
-if st.session_state.get("messages"):
-    # --- TXT transcript ---
-    transcript_txt = "InMind Chat Transcript\n"
-    transcript_txt += f"Session started: {st.session_state.messages[0]['time'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-    transcript_txt += "-" * 40 + "\n\n"
-    for m in st.session_state.messages:
-        timestamp = m["time"].strftime("%H:%M:%S")
-        speaker = "You" if m["role"] == "user" else "InMind"
-        transcript_txt += f"[{timestamp}] {speaker}: {m['content']}\n\n"
-
-    st.download_button(
-        label="📥 Download Chat History (.txt)",
-        data=transcript_txt,
-        file_name="inmind_chat.txt",
-        mime="text/plain"
-    )
-
-    # --- DOCX transcript ---
-    doc = Document()
-    doc.add_heading("InMind Chat Transcript", 0)
-    doc.add_paragraph(f"Session started: {st.session_state.messages[0]['time'].strftime('%Y-%m-%d %H:%M:%S')}")
-    doc.add_paragraph("-" * 40)
-
-    for m in st.session_state.messages:
-        timestamp = m["time"].strftime("%H:%M:%S")
-        speaker = "You" if m["role"] == "user" else "InMind"
-        p = doc.add_paragraph()
-        p.add_run(f"[{timestamp}] {speaker}: ").bold = True
-        p.add_run(m["content"])
-
-    buffer = BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-
-    st.download_button(
-        label="📥 Download Chat History (.docx)",
-        data=buffer,
-        file_name="inmind_chat.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-
-# Clear chat
-if st.button("🗑️ Clear Chat"):
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Hi! I'm InMind. Ask me anything!", "time": datetime.now()}
-    ]
-    st.experimental_rerun()
