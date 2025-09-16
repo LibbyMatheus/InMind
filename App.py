@@ -1,11 +1,20 @@
 import streamlit as st
 import requests
-from docx import Document  # <-- Word export
+import subprocess, sys
+
+# -------------------------------
+# Ensure python-docx is installed
+# -------------------------------
+try:
+    from docx import Document
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-docx"])
+    from docx import Document
 
 # -------------------------------
 # Config & Styling
 # -------------------------------
-st.set_page_config(page_title="InMind", layout="centered")
+st.set_page_config(page_title="InMind", layout="wide")  # switched to "wide"
 
 ACCENT = "#FDD2DC"
 
@@ -15,6 +24,16 @@ st.markdown(
     .stApp {{
         background-color: #000000;
         color: #ffffff;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+    }}
+    [data-testid="stAppViewContainer"] {{
+        padding: 0;
+        margin: 0;
+    }}
+    [data-testid="stHeader"] {{
+        display: none;
     }}
     h1, h2, h3 {{
         color: #ffffff;
@@ -62,7 +81,7 @@ st.markdown(
 # -------------------------------
 # Hugging Face API
 # -------------------------------
-HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+HF_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
 HF_HEADERS = {"Authorization": f"Bearer {st.secrets['HF_API_KEY']}"}
 
 def query_huggingface(prompt):
@@ -108,24 +127,21 @@ if prompt := st.chat_input("Type your question here..."):
         st.markdown(reply)
 
 # -------------------------------
-# Export to Word Feature
+# Export Conversation to Word
 # -------------------------------
-if st.button("📄 Export Chat to Word"):
+if st.button("Export Chat to Word"):
     doc = Document()
     doc.add_heading("InMind Chat Export", level=1)
-
     for msg in st.session_state.messages:
         role = "Assistant" if msg["role"] == "assistant" else "You"
         doc.add_paragraph(f"{role}: {msg['content']}")
-
-    file_path = "InMind_Chat.docx"
-    doc.save(file_path)
-
-    with open(file_path, "rb") as f:
+    filename = "inmind_chat.docx"
+    doc.save(filename)
+    with open(filename, "rb") as f:
         st.download_button(
-            label="⬇️ Download Word File",
-            data=f,
-            file_name="InMind_Chat.docx",
+            "Download Chat History",
+            f,
+            file_name=filename,
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
