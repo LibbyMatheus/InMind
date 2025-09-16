@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+from docx import Document  # <-- Word export
 
 # -------------------------------
 # Config & Styling
@@ -105,6 +106,28 @@ if prompt := st.chat_input("Type your question here..."):
     st.session_state.messages.append({"role": "assistant", "content": reply})
     with st.chat_message("assistant"):
         st.markdown(reply)
+
+# -------------------------------
+# Export to Word Feature
+# -------------------------------
+if st.button("📄 Export Chat to Word"):
+    doc = Document()
+    doc.add_heading("InMind Chat Export", level=1)
+
+    for msg in st.session_state.messages:
+        role = "Assistant" if msg["role"] == "assistant" else "You"
+        doc.add_paragraph(f"{role}: {msg['content']}")
+
+    file_path = "InMind_Chat.docx"
+    doc.save(file_path)
+
+    with open(file_path, "rb") as f:
+        st.download_button(
+            label="⬇️ Download Word File",
+            data=f,
+            file_name="InMind_Chat.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
 
 # -------------------------------
 # Disclaimer
