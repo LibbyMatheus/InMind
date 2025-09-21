@@ -1,5 +1,6 @@
 import streamlit as st
 import wikipedia
+import time
 
 # ---------------------------
 # Page Config
@@ -11,7 +12,7 @@ st.set_page_config(
 )
 
 # ---------------------------
-# Initialize Session State
+# Session State Initialization
 # ---------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -21,7 +22,7 @@ if "last_wiki" not in st.session_state:
     st.session_state.last_wiki = None
 
 # ---------------------------
-# FAQ Buttons
+# FAQ Buttons and Mapping
 # ---------------------------
 faq_buttons = [
     ("What causes dementia?", "Dementia"),
@@ -31,16 +32,14 @@ faq_buttons = [
 ]
 
 # ---------------------------
-# Wikipedia Fetch Helper
+# Wikipedia Fetch Function
 # ---------------------------
 @st.cache_data(show_spinner=False)
 def fetch_wikipedia_summary(topic: str, max_chars: int = 900):
     """
-    Fetches a Wikipedia summary. Uses broad definition if possible,
-    and appends next steps guidance.
+    Fetches a Wikipedia summary with broad definitions and next steps guidance.
     """
     try:
-        # Broad definition mapping
         broad_topics = {
             "dementia": "Dementia",
             "alzheimer": "Alzheimer's disease",
@@ -49,7 +48,7 @@ def fetch_wikipedia_summary(topic: str, max_chars: int = 900):
             "memory loss": "Amnesia",
         }
 
-        # Use mapped broad topic if available
+        # Use broad topic if available
         page_title = broad_topics.get(topic.lower(), topic)
         page_obj = wikipedia.page(page_title, auto_suggest=False)
         summary = wikipedia.summary(page_obj.title, sentences=3)
@@ -57,8 +56,7 @@ def fetch_wikipedia_summary(topic: str, max_chars: int = 900):
         if len(summary) > max_chars:
             summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
 
-        # Add next steps guidance
-        next_steps = "\n\n**Next steps:** If you or someone you know is experiencing these symptoms, consult a healthcare professional for proper evaluation. Early detection and management are important."
+        next_steps = "\n\n**Next steps:** If you or someone you know is experiencing these symptoms, consult a healthcare professional. Early detection and management are important."
         return {
             "title": page_obj.title,
             "summary": summary + next_steps,
@@ -72,12 +70,14 @@ def fetch_wikipedia_summary(topic: str, max_chars: int = 900):
         }
 
 # ---------------------------
-# Header / Logo
+# Custom Logo Text
 # ---------------------------
-try:
-    st.image("LOGO_PATH.png", width=120)
-except Exception:
-    st.write("🧠 InMind")
+logo_html = """
+<div style='text-align:center; font-family: "Hiragino Mincho Pro N", serif; font-size:64px; font-weight:bold;'>
+    InMind.
+</div>
+"""
+st.markdown(logo_html, unsafe_allow_html=True)
 
 # ---------------------------
 # FAQ Section
@@ -92,7 +92,9 @@ for i, (label, topic) in enumerate(faq_buttons):
         clicked = faq_col2.button(label)
 
     if clicked:
-        wiki = fetch_wikipedia_summary(topic)
+        with st.spinner("Fetching answer..."):
+            time.sleep(0.3)
+            wiki = fetch_wikipedia_summary(topic)
         st.session_state.messages.append(("assistant", wiki["summary"]))
         st.session_state.last_wiki = wiki
 
@@ -102,7 +104,9 @@ for i, (label, topic) in enumerate(faq_buttons):
 user_input = st.chat_input("Ask about brain health or describe symptoms...")
 if user_input:
     st.session_state.messages.append(("user", user_input))
-    wiki = fetch_wikipedia_summary(user_input)
+    with st.spinner("Fetching answer..."):
+        time.sleep(0.3)
+        wiki = fetch_wikipedia_summary(user_input)
     st.session_state.messages.append(("assistant", wiki["summary"]))
     st.session_state.last_wiki = wiki
 
