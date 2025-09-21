@@ -1,5 +1,4 @@
 import streamlit as st
-import import streamlit as st
 import wikipedia
 
 # ---------------------------
@@ -25,19 +24,24 @@ if "last_wiki" not in st.session_state:
 # FAQ Buttons
 # ---------------------------
 faq_buttons = [
-    ("What causes dementia?", "dementia"),
-    ("What are the early signs of Alzheimer’s?", "alzheimer"),
-    ("How can stroke affect memory?", "stroke"),
-    ("What are the symptoms of Parkinson’s?", "parkinson"),
+    ("What causes dementia?", "Dementia"),
+    ("What are the early signs of Alzheimer’s?", "Alzheimer's disease"),
+    ("How can stroke affect memory?", "Stroke"),
+    ("What are the symptoms of Parkinson’s?", "Parkinson's disease"),
 ]
 
 # ---------------------------
-# Wikipedia Helper Function
+# Wikipedia Fetch Helper
 # ---------------------------
 @st.cache_data(show_spinner=False)
-def cached_wikipedia_query(prompt: str, topic_key: str = None, max_chars: int = 900):
+def fetch_wikipedia_summary(topic: str, max_chars: int = 900):
+    """
+    Fetches a Wikipedia summary. Uses broad definition if possible,
+    and appends next steps guidance.
+    """
     try:
-        canonical_topics = {
+        # Broad definition mapping
+        broad_topics = {
             "dementia": "Dementia",
             "alzheimer": "Alzheimer's disease",
             "stroke": "Stroke",
@@ -45,35 +49,42 @@ def cached_wikipedia_query(prompt: str, topic_key: str = None, max_chars: int = 
             "memory loss": "Amnesia",
         }
 
-        page_title = canonical_topics.get(topic_key, prompt)
+        # Use mapped broad topic if available
+        page_title = broad_topics.get(topic.lower(), topic)
         page_obj = wikipedia.page(page_title, auto_suggest=False)
         summary = wikipedia.summary(page_obj.title, sentences=3)
 
         if len(summary) > max_chars:
             summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
 
+        # Add next steps guidance
+        next_steps = "\n\n**Next steps:** If you or someone you know is experiencing these symptoms, consult a healthcare professional for proper evaluation. Early detection and management are important."
         return {
             "title": page_obj.title,
-            "summary": summary,
+            "summary": summary + next_steps,
             "url": page_obj.url
         }
     except Exception:
-        return None
+        return {
+            "title": topic,
+            "summary": "Sorry, I couldn’t find information on that. Please try another term or consult a healthcare professional.",
+            "url": ""
+        }
 
 # ---------------------------
-# Header with Logo
+# Header / Logo
 # ---------------------------
 try:
-    st.image("LOGO_PATH.png", width=120)  # replace with your actual logo path
+    st.image("LOGO_PATH.png", width=120)
 except Exception:
-    st.write("🧠 InMind")  # fallback text if logo fails
+    st.write("🧠 InMind")
 
 # ---------------------------
 # FAQ Section
 # ---------------------------
 st.subheader("Common Questions")
 faq_col1, faq_col2 = st.columns(2)
-for i, (label, topic_key) in enumerate(faq_buttons):
+for i, (label, topic) in enumerate(faq_buttons):
     clicked = False
     if i % 2 == 0:
         clicked = faq_col1.button(label)
@@ -81,185 +92,50 @@ for i, (label, topic_key) in enumerate(faq_buttons):
         clicked = faq_col2.button(label)
 
     if clicked:
-        wiki = cached_wikipedia_query(label, topic_key=topic_key)
-        if wiki:
-            st.session_state.messages.append(("assistant", wiki["summary"]))
-            st.session_state.last_wiki = wiki
+        wiki = fetch_wikipedia_summary(topic)
+        st.session_state.messages.append(("assistant", wiki["summary"]))
+        st.session_state.last_wiki = wiki
+
+# ---------------------------
+# Chat Input
+# ---------------------------
+user_input = st.chat_input("Ask about brain health or describe symptoms...")
+if user_input:
+    st.session_state.messages.append(("user", user_input))
+    wiki = fetch_wikipedia_summary(user_input)
+    st.session_state.messages.append(("assistant", wiki["summary"]))
+    st.session_state.last_wiki = wiki
+
+# ---------------------------
+# Chat Display
+# ---------------------------
+for role, msg in st.session_state.messages:
+    if role == "user":
+        st.chat_message("user").write(msg)
+    else:
+        st.chat_message("assistant").write(msg)
+
+# ---------------------------
+# Favorites and Clear Buttons
+# ---------------------------
+btn_col1, btn_col2 = st.columns(2)
+if btn_col1.button("⭐ Favorite"):
+    if st.session_state.last_wiki and st.session_state.last_wiki not in st.session_state.favorites:
+        st.session_state.favorites.append(st.session_state.last_wiki)
+
+if btn_col2.button("🗑️ Clear Chat"):
+    st.session_state.messages = []
+    st.session_state.last_wiki = None
+    st.session_state.favorites = []
+    st.experimental_rerun()
+
+# ---------------------------
+# Favorites Display
+# ---------------------------
+if st.session_state.favorites:
+    st.subheader("⭐ Favorites")
+    for fav in st.session_state.favorites:
+        if fav["url"]:
+            st.markdown(f"**[{fav['title']}]({fav['url']})** - {fav['summary']}")
         else:
-            st.session_state.messages.append(("assistant", "Sorry, I couldn’t find information on that."))
-
-# ---------------------------
-# Chat Input
-# ---------------------------
-user_input = st.chat_input("Ask about brain health...")
-if user_input:
-    st.session_state.messages.append(("user", user_input))
-    wiki = cached_wikipedia_query(user_input)
-    if wiki:
-        st.session_state.messages.append(("assistant", wiki["summary"]))
-        st.session_state.last_wiki = wiki
-    else:
-        st.session_state.messages.append(("assistant", "Sorry, I couldn’t find information on that."))
-
-# ---------------------------
-# Chat Display
-# ---------------------------
-for role, msg in st.session_state.messages:
-    if role == "user":
-        st.chat_message("user").write(msg)
-    else:
-        st.chat_message("assistant").write(msg)
-
-# ---------------------------
-# Buttons (Favorites, Clear)
-# ---------------------------
-btn_col1, btn_col2 = st.columns(2)
-if btn_col1.button("⭐ Favorite"):
-    if st.session_state.last_wiki and st.session_state.last_wiki not in st.session_state.favorites:
-        st.session_state.favorites.append(st.session_state.last_wiki)
-
-if btn_col2.button("🗑️ Clear Chat"):
-    st.session_state.messages = []
-    st.session_state.last_wiki = None
-    st.session_state.favorites = []
-    st.experimental_rerun()
-
-# ---------------------------
-# Favorites Display
-# ---------------------------
-if st.session_state.favorites:
-    st.subheader("⭐ Favorites")
-    for fav in st.session_state.favorites:
-        st.markdown(f"**[{fav['title']}]({fav['url']})** - {fav['summary']}")
-# Page Config
-# ---------------------------
-st.set_page_config(
-    page_title="🧠 InMind",
-    page_icon="🧠",
-    layout="centered"
-)
-
-# ---------------------------
-# Initialize Session State
-# ---------------------------
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "favorites" not in st.session_state:
-    st.session_state.favorites = []
-if "last_wiki" not in st.session_state:
-    st.session_state.last_wiki = None
-
-# ---------------------------
-# FAQ Section
-# ---------------------------
-faq_buttons = [
-    ("What causes dementia?", "dementia"),
-    ("What are the early signs of Alzheimer’s?", "alzheimer"),
-    ("How can stroke affect memory?", "stroke"),
-    ("What are the symptoms of Parkinson’s?", "parkinson"),
-]
-
-# ---------------------------
-# Wikipedia API Setup
-# ---------------------------
-wiki_wiki = wikipediaapi.Wikipedia("en")
-
-# ---------------------------
-# Caching Helper
-# ---------------------------
-@st.cache_data(show_spinner=False)
-def cached_wikipedia_query(prompt: str, topic_key: str = None, max_chars: int = 900):
-    try:
-        canonical_topics = {
-            "dementia": "Dementia",
-            "alzheimer": "Alzheimer's disease",
-            "stroke": "Stroke",
-            "parkinson": "Parkinson's disease",
-            "memory loss": "Amnesia",
-        }
-
-        page_title = canonical_topics.get(topic_key, prompt)
-        page = wiki_wiki.page(page_title)
-
-        if not page.exists():
-            return None
-
-        summary = page.summary
-        if len(summary) > max_chars:
-            summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
-
-        return {
-            "title": page.title,
-            "summary": summary,
-            "url": page.fullurl
-        }
-    except Exception:
-        return None
-
-# ---------------------------
-# Header with Logo only
-# ---------------------------
-st.image("LOGO_PATH.png", width=120)  # replace LOGO_PATH.png with your logo path or URL
-
-# ---------------------------
-# FAQ Section
-# ---------------------------
-st.subheader("Common Questions")
-faq_col1, faq_col2 = st.columns(2)
-for i, (label, topic_key) in enumerate(faq_buttons):
-    if i % 2 == 0:
-        if faq_col1.button(label):
-            wiki = cached_wikipedia_query(label, topic_key=topic_key)
-            if wiki:
-                st.session_state.messages.append(("assistant", wiki["summary"]))
-                st.session_state.last_wiki = wiki
-    else:
-        if faq_col2.button(label):
-            wiki = cached_wikipedia_query(label, topic_key=topic_key)
-            if wiki:
-                st.session_state.messages.append(("assistant", wiki["summary"]))
-                st.session_state.last_wiki = wiki
-
-# ---------------------------
-# Chat Input
-# ---------------------------
-user_input = st.chat_input("Ask about brain health...")
-if user_input:
-    st.session_state.messages.append(("user", user_input))
-    wiki = cached_wikipedia_query(user_input)
-    if wiki:
-        st.session_state.messages.append(("assistant", wiki["summary"]))
-        st.session_state.last_wiki = wiki
-    else:
-        st.session_state.messages.append(("assistant", "Sorry, I couldn’t find information on that."))
-
-# ---------------------------
-# Chat Display
-# ---------------------------
-for role, msg in st.session_state.messages:
-    if role == "user":
-        st.chat_message("user").write(msg)
-    else:
-        st.chat_message("assistant").write(msg)
-
-# ---------------------------
-# Buttons (Favorites, Clear)
-# ---------------------------
-btn_col1, btn_col2 = st.columns(2)
-if btn_col1.button("⭐ Favorite"):
-    if st.session_state.last_wiki and st.session_state.last_wiki not in st.session_state.favorites:
-        st.session_state.favorites.append(st.session_state.last_wiki)
-
-if btn_col2.button("🗑️ Clear Chat"):
-    st.session_state.messages = []
-    st.session_state.last_wiki = None
-    st.session_state.favorites = []
-    st.experimental_rerun()
-
-# ---------------------------
-# Favorites Display
-# ---------------------------
-if st.session_state.favorites:
-    st.subheader("⭐ Favorites")
-    for fav in st.session_state.favorites:
-        st.markdown(f"**[{fav['title']}]({fav['url']})** - {fav['summary']}")
+            st.markdown(f"**{fav['title']}** - {fav['summary']}")
