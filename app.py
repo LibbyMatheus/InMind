@@ -1,5 +1,5 @@
 import streamlit as st
-import wikipedia
+import requests
 import time
 
 # ---------------------------
@@ -32,14 +32,15 @@ faq_buttons = [
 ]
 
 # ---------------------------
-# Wikipedia Fetch Function
+# Wikipedia API Fetch Function
 # ---------------------------
 @st.cache_data(show_spinner=False)
 def fetch_wikipedia_summary(topic: str, max_chars: int = 900):
     """
-    Fetches a Wikipedia summary with broad definitions and next steps guidance.
+    Fetches summary from Wikipedia REST API and adds next steps guidance.
     """
     try:
+        # Broad topic mapping
         broad_topics = {
             "dementia": "Dementia",
             "alzheimer": "Alzheimer's disease",
@@ -48,20 +49,24 @@ def fetch_wikipedia_summary(topic: str, max_chars: int = 900):
             "memory loss": "Amnesia",
         }
 
-        # Use broad topic if available
         page_title = broad_topics.get(topic.lower(), topic)
-        page_obj = wikipedia.page(page_title, auto_suggest=False)
-        summary = wikipedia.summary(page_obj.title, sentences=3)
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{page_title.replace(' ', '_')}"
+        response = requests.get(url, timeout=5)
+        if response.status_code != 200:
+            raise Exception("Page not found")
+        data = response.json()
+        summary = data.get("extract", "")
 
         if len(summary) > max_chars:
             summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
 
-        next_steps = "\n\n**Next steps:** If you or someone you know is experiencing these symptoms, consult a healthcare professional. Early detection and management are important."
+        next_steps = "\n\n**Next steps:** If you or someone you know is experiencing these symptoms, consult a healthcare professional for proper evaluation. Early detection and management are important."
         return {
-            "title": page_obj.title,
+            "title": data.get("title", page_title),
             "summary": summary + next_steps,
-            "url": page_obj.url
+            "url": data.get("content_urls", {}).get("desktop", {}).get("page", "")
         }
+
     except Exception:
         return {
             "title": topic,
