@@ -23,7 +23,7 @@ if "last_wiki" not in st.session_state:
 # ---------------------------
 # FAQ Section
 # ---------------------------
-faq_translations = [
+faq_buttons = [
     ("What causes dementia?", "dementia"),
     ("What are the early signs of Alzheimer’s?", "alzheimer"),
     ("How can stroke affect memory?", "stroke"),
@@ -66,18 +66,18 @@ def cached_wikipedia_query(prompt: str, topic_key: str = None, max_chars: int = 
         return None
 
 # ---------------------------
-# Header with Logo
+# Header with Logo only
 # ---------------------------
-st.image("https://i.imgur.com/6Iej2cO.png", width=120)
-st.title("🧠 InMind")
-st.write("Your companion for brain health resources.")
+st.image("LOGO_PATH.png", width=120)  # replace LOGO_PATH.png with your logo path or URL
+# Optional subtitle:
+# st.write("Your companion for brain health resources.")
 
 # ---------------------------
 # FAQ Section
 # ---------------------------
 st.subheader("Common Questions")
 faq_col1, faq_col2 = st.columns(2)
-for i, (label, topic_key) in enumerate(faq_translations):
+for i, (label, topic_key) in enumerate(faq_buttons):
     if i % 2 == 0:
         if faq_col1.button(label):
             wiki = cached_wikipedia_query(label, topic_key=topic_key)
