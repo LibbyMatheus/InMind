@@ -1,5 +1,5 @@
 import streamlit as st
-import wikipedia
+import wikipediaapi
 
 # ---------------------------
 # Page Config
@@ -31,6 +31,11 @@ faq_buttons = [
 ]
 
 # ---------------------------
+# Wikipedia API Setup
+# ---------------------------
+wiki_wiki = wikipediaapi.Wikipedia("en")
+
+# ---------------------------
 # Caching Helper
 # ---------------------------
 @st.cache_data(show_spinner=False)
@@ -44,23 +49,20 @@ def cached_wikipedia_query(prompt: str, topic_key: str = None, max_chars: int = 
             "memory loss": "Amnesia",
         }
 
-        if topic_key and topic_key in canonical_topics:
-            page_name = canonical_topics[topic_key]
-            page_obj = wikipedia.page(page_name, auto_suggest=False)
-            summary = wikipedia.summary(page_obj.title, sentences=3)
-        else:
-            results = wikipedia.search(prompt, results=3)
-            if not results:
-                return None
-            page_obj = wikipedia.page(results[0], auto_suggest=False)
-            summary = wikipedia.summary(page_obj.title, sentences=3)
+        page_title = canonical_topics.get(topic_key, prompt)
+        page = wiki_wiki.page(page_title)
 
+        if not page.exists():
+            return None
+
+        summary = page.summary
         if len(summary) > max_chars:
             summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
+
         return {
-            "title": page_obj.title,
+            "title": page.title,
             "summary": summary,
-            "url": page_obj.url
+            "url": page.fullurl
         }
     except Exception:
         return None
@@ -69,8 +71,6 @@ def cached_wikipedia_query(prompt: str, topic_key: str = None, max_chars: int = 
 # Header with Logo only
 # ---------------------------
 st.image("LOGO_PATH.png", width=120)  # replace LOGO_PATH.png with your logo path or URL
-# Optional subtitle:
-# st.write("Your companion for brain health resources.")
 
 # ---------------------------
 # FAQ Section
@@ -125,7 +125,7 @@ if btn_col2.button("🗑️ Clear Chat"):
     st.session_state.messages = []
     st.session_state.last_wiki = None
     st.session_state.favorites = []
-    st.rerun()
+    st.experimental_rerun()
 
 # ---------------------------
 # Favorites Display
