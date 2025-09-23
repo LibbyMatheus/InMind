@@ -119,7 +119,8 @@ if "messages" not in st.session_state:
 # Centered logo
 st.image("LOGO_PATH.png", use_container_width=True)
 
-# Disclaimer
+# Smaller title using markdown
+st.markdown("### 🧠 InMind — Brain Health Assistant")
 st.caption("Educational assistant for brain health — not a medical diagnosis tool.", unsafe_allow_html=True)
 
 # Sidebar
@@ -153,7 +154,7 @@ with st.sidebar:
         "What is dementia?": "Dementia",
         "What is Alzheimer's disease?": "Alzheimer's disease",
         "What is Parkinson's disease?": "Parkinson's disease",
-        "What is ALS?": "Amyotrophic_lateral_sclerosis"
+        "What is Amyotrophic lateral sclerosis?": "Amyotrophic lateral sclerosis"
     }
 
     for label, query in faq_prompts.items():
@@ -176,16 +177,12 @@ with st.sidebar:
             except Exception:
                 st.warning("Sorry, I couldn’t find reliable information on this topic.")
 
-# -----------------------------
 # Show chat history
-# -----------------------------
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# -----------------------------
 # Handle new user input
-# -----------------------------
 if prompt := st.chat_input("Ask me about brain health..."):
     st.session_state.messages.append({"role": "user", "content": prompt, "time": datetime.now()})
     with st.chat_message("user"):
@@ -222,4 +219,5 @@ if prompt := st.chat_input("Ask me about brain health..."):
             else:
                 reply = offline_fallback(prompt)
                 st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
-               
+                with st.chat_message("assistant"):
+                    st.markdown(reply)
