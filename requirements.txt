@@ -1,3 +1,4 @@
 streamlit
 wikipedia
 requests>=2.31.0
+beautifulsoup4
