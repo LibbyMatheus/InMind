@@ -35,24 +35,13 @@ def detect_health_categories(text: str):
 def health_advice_block(categories):
     advice = []
     if "memory" in categories:
-        advice.append(
-            "🧠 Memory issues detected:\n- Could be age-related or linked to conditions like Alzheimer’s.\n"
-            "- Next: See a neurologist.\n- Meanwhile: Encourage mental stimulation and daily routines."
-        )
+        advice.append("🧠 Memory issues detected:\n- Could be age-related or linked to conditions like Alzheimer’s.\n- Next: Consider seeing a neurologist.\n- Meanwhile: Encourage mental stimulation and daily routines.")
     if "movement" in categories:
-        advice.append(
-            "🤲 Movement issues detected:\n- Possible Parkinson’s or motor-related disorder.\n"
-            "- Next: Ask for referral to a movement specialist.\n- Meanwhile: Gentle exercise may help."
-        )
+        advice.append("🤲 Movement issues detected:\n- Possible Parkinson’s or motor-related disorder.\n- Next: Ask for a referral to a movement specialist.\n- Meanwhile: Gentle exercise may help.")
     if "stroke" in categories:
-        advice.append(
-            "⚠️ Stroke signs detected:\n- This is a medical emergency.\n- Call 911 immediately.\n- Do NOT wait."
-        )
+        advice.append("⚠️ Stroke signs detected:\n- This is a medical emergency.\n- Call 911 immediately.\n- Do NOT wait.")
     if "vision" in categories:
-        advice.append(
-            "👁️ Vision issues detected:\n- Could be linked to neurological conditions or eye health.\n"
-            "- Next: Schedule an ophthalmology exam.\n- Meanwhile: Note sudden changes and seek urgent help if vision is lost."
-        )
+        advice.append("👁️ Vision issues detected:\n- Could be linked to neurological conditions or eye health.\n- Next: Schedule an ophthalmology exam.\n- Meanwhile: Note any sudden changes and seek urgent help if vision is lost.")
     return "\n\n".join(advice)
 
 # -----------------------------
@@ -64,7 +53,7 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
             "dementia": "Dementia",
             "alzheimer": "Alzheimer's disease",
             "alzheimers": "Alzheimer's disease",
-            "stroke": "Stroke (medicine)",
+            "stroke": "Stroke",
             "parkinson": "Parkinson's disease",
             "memory loss": "Amnesia",
         }
@@ -76,7 +65,7 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
                     page_obj = wikipedia.page(page, auto_suggest=False)
                     summary = wikipedia.summary(page_obj.title, sentences=3)
                     if len(summary) > max_chars:
-                        summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
+                        summary = summary[:max_chars].rsplit(".",1)[0] + "..."
                     return {"title": page_obj.title, "summary": summary, "url": page_obj.url}, [page_obj.title]
                 except Exception:
                     pass
@@ -86,6 +75,12 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
             return None, None
 
         title = results[0]
+        if any(word in title.lower() for word in ["childhood", "variant", "subtype", "familial"]):
+            for candidate in results[1:]:
+                if not any(w in candidate.lower() for w in ["childhood", "variant", "subtype", "familial"]):
+                    title = candidate
+                    break
+
         try:
             page = wikipedia.page(title, auto_suggest=False)
         except wikipedia.DisambiguationError as e:
@@ -96,10 +91,11 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
 
         summary = wikipedia.summary(page.title, sentences=3)
         if len(summary) > max_chars:
-            summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
+            summary = summary[:max_chars].rsplit(".",1)[0] + "..."
 
         url = getattr(page, "url", f"https://en.wikipedia.org/wiki/{urllib.parse.quote(page.title)}")
         return {"title": page.title, "summary": summary, "url": url}, results
+
     except Exception:
         return None, None
 
@@ -114,35 +110,19 @@ def offline_fallback(prompt: str) -> str:
 # -----------------------------
 st.set_page_config(page_title="InMind", page_icon="🧠", layout="centered")
 
-# Dark background
-st.markdown(
-    """
-    <style>
-    .stApp {background-color: #000000; color: #FFFFFF;}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# Initialize session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.last_wiki = None
     st.session_state.query_count = 0
     st.session_state.favorites = []
 
-# Logo (centered)
-st.image("LOGO_PATH.png", use_container_width=False, width=250)
+# Centered logo
+st.image("LOGO_PATH.png", use_container_width=True)
 
-# Disclaimer (left-aligned)
-st.markdown(
-    "Educational assistant for brain health — not a medical diagnosis tool.",
-    unsafe_allow_html=True
-)
+# Disclaimer
+st.caption("Educational assistant for brain health — not a medical diagnosis tool.", unsafe_allow_html=True)
 
-# -----------------------------
-# Sidebar FAQs
-# -----------------------------
+# Sidebar
 with st.sidebar:
     st.header("⚙️ Settings & Tools")
     if st.button("🗑️ Clear Chat"):
@@ -150,6 +130,7 @@ with st.sidebar:
         st.session_state.query_count = 0
         st.session_state.last_wiki = None
         st.session_state.favorites = []
+        st.experimental_rerun()
 
     st.subheader("⭐ Favorites")
     if st.session_state.favorites:
@@ -164,21 +145,25 @@ with st.sidebar:
             transcript += f"[{m['time'].strftime('%H:%M')}] {m['role'].title()}: {m['content']}\n\n"
         st.download_button("Save File", transcript, "chat.txt")
 
+    # -----------------------------
+    # FAQs
+    # -----------------------------
     st.subheader("❓ FAQs")
     faq_prompts = {
         "What is dementia?": "Dementia",
-        "What causes Alzheimer's?": "Alzheimer's disease",
+        "What is Alzheimer's disease?": "Alzheimer's disease",
         "What is Parkinson's disease?": "Parkinson's disease",
-        "What is ALS?": "Amyotrophic lateral sclerosis"
+        "What is ALS?": "Amyotrophic_lateral_sclerosis"
     }
 
     for label, query in faq_prompts.items():
         if st.button(label):
-            info, _ = query_wikipedia_article(query)
-            if info:
+            try:
+                page_obj = wikipedia.page(query, auto_suggest=False)
+                summary = wikipedia.summary(page_obj.title, sentences=3)
                 reply = (
-                    f"**{info['title']}**\n\n{info['summary']}\n\n"
-                    f"Read more: {info['url']}\n\n"
+                    f"**{page_obj.title}**\n\n{summary}\n\n"
+                    f"Read more: {page_obj.url}\n\n"
                     "What to do next:\n- Consult a healthcare professional for guidance.\n"
                     "- Visit the resources page for caregiving tips, brain exercises, and questions to ask your doctor."
                 )
@@ -187,6 +172,9 @@ with st.sidebar:
                     "content": reply,
                     "time": datetime.now()
                 })
+                st.experimental_rerun()
+            except Exception:
+                st.warning("Sorry, I couldn’t find reliable information on this topic.")
 
 # -----------------------------
 # Show chat history
@@ -220,11 +208,9 @@ if prompt := st.chat_input("Ask me about brain health..."):
                 "- Visit the resources page for caregiving tips, brain exercises, and questions to ask your doctor."
             )
             st.session_state.last_wiki = info['title']
-            st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+            st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now(), "meta": {"url": info["url"]}})
             with st.chat_message("assistant"):
                 st.markdown(reply)
-            if st.button("⭐ Save last answer"):
-                st.session_state.favorites.append(reply)
         else:
             categories = detect_health_categories(prompt)
             if categories:
@@ -236,5 +222,4 @@ if prompt := st.chat_input("Ask me about brain health..."):
             else:
                 reply = offline_fallback(prompt)
                 st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
-                with st.chat_message("assistant"):
-                    st.markdown(reply)
+               
