@@ -19,42 +19,80 @@ CANONICAL_TOPICS = {
 }
 
 # -----------------------------
-# Wikipedia query
+# Symptom-to-condition mapping
+# -----------------------------
+SYMPTOM_MAP = {
+    "memory loss": "Dementia",
+    "forgetting": "Dementia",
+    "confusion": "Delirium",
+    "slurred speech": "Stroke",
+    "drooping face": "Stroke",
+    "weakness": "Stroke",
+    "tremor": "Parkinson's disease",
+    "shaking": "Parkinson's disease",
+    "stiffness": "Parkinson's disease",
+    "blurry vision": "Multiple sclerosis",
+    "double vision": "Multiple sclerosis",
+    "seizure": "Epilepsy"
+}
+
+# -----------------------------
+# Wikipedia query with causes
 # -----------------------------
 def query_wikipedia_article(prompt: str, max_chars: int = 900):
     try:
         lower_prompt = prompt.lower()
 
-        # ✅ Bias toward medical canonical topics
+        # ✅ Symptom matching first
+        for symptom, condition in SYMPTOM_MAP.items():
+            if symptom in lower_prompt:
+                try:
+                    page_obj = wikipedia.page(condition, auto_suggest=False)
+                    summary = wikipedia.summary(page_obj.title, sentences=3)
+                    return {
+                        "title": page_obj.title,
+                        "summary": f"Based on your symptoms, this may relate to **{page_obj.title}**.\n\n{summary}",
+                        "url": page_obj.url
+                    }
+                except Exception:
+                    pass
+
+        # ✅ Canonical topic preference
         for key, page in CANONICAL_TOPICS.items():
             if key in lower_prompt:
                 try:
                     page_obj = wikipedia.page(page, auto_suggest=False)
                     summary = wikipedia.summary(page_obj.title, sentences=3)
-                    if len(summary) > max_chars:
-                        summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
+
+                    # Look for causes section if asked
+                    if any(w in lower_prompt for w in ["cause", "risk factor", "reason"]):
+                        try:
+                            content = page_obj.content
+                            for section in ["Cause", "Causes", "Risk factors", "Etiology"]:
+                                if section.lower() in content.lower():
+                                    snippet = content.split(section, 1)[1][:max_chars]
+                                    return {
+                                        "title": page_obj.title,
+                                        "summary": f"Here’s what Wikipedia lists under **{section}**:\n\n{snippet}...",
+                                        "url": page_obj.url
+                                    }
+                        except Exception:
+                            pass
+
                     return {
                         "title": page_obj.title,
                         "summary": summary,
                         "url": page_obj.url
                     }
                 except Exception:
-                    pass  # fallback
+                    pass
 
-        # ✅ Normal Wikipedia search
-        results = wikipedia.search(prompt, results=3)
+        # ✅ Normal Wikipedia search (prefer exact term first)
+        results = wikipedia.search(prompt, results=5)
         if not results:
             return None
 
         title = results[0]
-
-        # ✅ Avoid irrelevant niche subtypes unless user asked
-        if any(word in title.lower() for word in ["childhood", "variant", "subtype", "familial"]):
-            for candidate in results[1:]:
-                if not any(w in candidate.lower() for w in ["childhood", "variant", "subtype", "familial"]):
-                    title = candidate
-                    break
-
         try:
             page = wikipedia.page(title, auto_suggest=False)
         except wikipedia.DisambiguationError as e:
@@ -81,9 +119,10 @@ st.set_page_config(page_title="InMind", page_icon="🧠", layout="wide")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Centered logo
+# Centered logo + title
 st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
 st.image("LOGO_PATH.png", width=180)
+st.markdown("<h2 style='text-align:center;'>🧠 InMind — Brain Health Assistant</h2>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # Disclaimer (centered)
@@ -99,7 +138,7 @@ with st.sidebar:
     st.header("❓ FAQs")
     faq_prompts = {
         "What is dementia?": "Dementia",
-        "What causes Alzheimer's?": "Alzheimer's disease",
+        "What causes Alzheimer's?": "Causes of Alzheimer's disease",
         "What is Parkinson's disease?": "Parkinson's disease",
         "What is a stroke?": "Stroke",
     }
@@ -124,7 +163,7 @@ for m in st.session_state.messages:
         st.markdown(m["content"])
 
 # User input
-if prompt := st.chat_input("Ask me about brain health... or any topic!"):
+if prompt := st.chat_input("Describe symptoms or ask any brain health question..."):
     st.session_state.messages.append({"role": "user", "content": prompt, "time": datetime.now()})
     with st.chat_message("user"):
         st.markdown(prompt)
