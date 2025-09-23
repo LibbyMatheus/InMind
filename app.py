@@ -2,6 +2,7 @@ import streamlit as st
 import wikipedia
 import urllib.parse
 from datetime import datetime
+from PIL import Image
 
 # -----------------------------
 # Emergency detection
@@ -66,7 +67,11 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
                     summary = wikipedia.summary(page_obj.title, sentences=3)
                     if len(summary) > max_chars:
                         summary = summary[:max_chars].rsplit(".",1)[0] + "..."
-                    return {"title": page_obj.title, "summary": summary, "url": page_obj.url}, [page_obj.title]
+                    return {
+                        "title": page_obj.title,
+                        "summary": summary,
+                        "url": page_obj.url
+                    }, [page_obj.title]
                 except Exception:
                     pass
 
@@ -75,6 +80,12 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
             return None, None
 
         title = results[0]
+        if any(word in title.lower() for word in ["childhood", "variant", "subtype", "familial"]):
+            for candidate in results[1:]:
+                if not any(w in candidate.lower() for w in ["childhood", "variant", "subtype", "familial"]):
+                    title = candidate
+                    break
+
         try:
             page = wikipedia.page(title, auto_suggest=False)
         except wikipedia.DisambiguationError as e:
@@ -93,6 +104,9 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
     except Exception:
         return None, None
 
+# -----------------------------
+# Offline fallback
+# -----------------------------
 def offline_fallback(prompt: str) -> str:
     return "Sorry, I couldn’t find reliable information. Please consult a trusted medical source."
 
@@ -101,16 +115,12 @@ def offline_fallback(prompt: str) -> str:
 # -----------------------------
 st.set_page_config(page_title="InMind", page_icon="🧠", layout="centered")
 
-# Apply black background with white text
 st.markdown(
     """
     <style>
-    .stApp {
-        background-color: #000000;
-        color: #FFFFFF;
-    }
-    .stTextInput>div>div>input {
-        color: #000000;
+    body {
+        background-color: black;
+        color: white;
     }
     </style>
     """,
@@ -123,18 +133,16 @@ if "messages" not in st.session_state:
     st.session_state.query_count = 0
     st.session_state.favorites = []
 
-# Centered logo only
-LOGO_PATH = "LOGO_PATH.png"
-st.markdown(
-    f"<div style='text-align:center;'><img src='{LOGO_PATH}' width='200'></div>",
-    unsafe_allow_html=True
-)
+# Centered logo
+try:
+    logo = Image.open("LOGO_PATH.png")
+    st.image(logo, width=200, use_column_width=False)
+except FileNotFoundError:
+    st.markdown("<div style='text-align:center;color:red;'>LOGO_PATH.png not found</div>", unsafe_allow_html=True)
 
-st.caption("Educational assistant for brain health — not a medical diagnosis tool.")
+st.caption("<div style='text-align:center;'>Educational assistant for brain health — not a medical diagnosis tool.</div>", unsafe_allow_html=True)
 
-# -----------------------------
 # Sidebar
-# -----------------------------
 with st.sidebar:
     st.header("⚙️ Settings & Tools")
     if st.button("🗑️ Clear Chat"):
@@ -157,9 +165,22 @@ with st.sidebar:
             transcript += f"[{m['time'].strftime('%H:%M')}] {m['role'].title()}: {m['content']}\n\n"
         st.download_button("Save File", transcript, "chat.txt")
 
-# -----------------------------
-# Show chat history
-# -----------------------------
+    # FAQ placeholders
+    st.subheader("❓ FAQs")
+    faq_prompts = {
+        "What is dementia?": "Dementia",
+        "What causes Alzheimer's?": "Alzheimer's disease",
+        "What is Parkinson's disease?": "Parkinson's disease",
+    }
+    for label, query in faq_prompts.items():
+        if st.button(label):
+            info, _ = query_wikipedia_article(query)
+            if info:
+                reply = f"**{info['title']}**\n\n{info['summary']}\n\nRead more: {info['url']}"
+                st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+                st.experimental_rerun()
+
+# Chat history
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
@@ -203,4 +224,3 @@ if prompt := st.chat_input("Ask me about brain health..."):
                 st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
                 with st.chat_message("assistant"):
                     st.markdown(reply)
-                    
