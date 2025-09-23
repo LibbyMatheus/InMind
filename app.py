@@ -4,6 +4,37 @@ import urllib.parse
 from datetime import datetime
 
 # -----------------------------
+# Page config
+# -----------------------------
+st.set_page_config(page_title="InMind", page_icon="🧠", layout="centered")
+
+# Set background color to jet black
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #000000;
+        color: #FFFFFF;
+    }
+    .stSidebar {
+        background-color: #111111;
+        color: #FFFFFF;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# -----------------------------
+# Centered logo
+# -----------------------------
+LOGO_PATH = "LOGO_PATH.png"  # Make sure this file is in the same folder as app.py
+st.markdown(
+    f"<div style='text-align: center;'><img src='{LOGO_PATH}' width='200'></div>",
+    unsafe_allow_html=True
+)
+
+# -----------------------------
 # Emergency detection
 # -----------------------------
 def detect_emergency(text: str) -> bool:
@@ -45,11 +76,10 @@ def health_advice_block(categories):
     return "\n\n".join(advice)
 
 # -----------------------------
-# Wikipedia query (fixed)
+# Wikipedia query
 # -----------------------------
 def query_wikipedia_article(prompt: str, max_chars: int = 900):
     try:
-        # Canonical general topics we want to prefer
         canonical_topics = {
             "dementia": "Dementia",
             "alzheimer": "Alzheimer's disease",
@@ -73,14 +103,12 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
                         "url": page_obj.url
                     }, [page_obj.title]
                 except Exception:
-                    pass  # fallback to normal search
+                    pass
 
-        # Normal search
         results = wikipedia.search(prompt, results=3)
         if not results:
             return None, None
 
-        # Pick the broadest result first
         title = results[0]
         if any(word in title.lower() for word in ["childhood", "variant", "subtype", "familial"]):
             for candidate in results[1:]:
@@ -113,60 +141,17 @@ def offline_fallback(prompt: str) -> str:
     return "Sorry, I couldn’t find reliable information. Please consult a trusted medical source."
 
 # -----------------------------
-# Streamlit app
+# Initialize session state
 # -----------------------------
-st.set_page_config(page_title="InMind", page_icon="🧠", layout="centered")
-
 if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.last_wiki = None
     st.session_state.query_count = 0
     st.session_state.favorites = []
 
-# Logo + Title
-st.image("https://i.imgur.com/Mh9YJ8L.png", width=120)  # ✅ replace with your logo URL
-st.title("🧠 InMind — Brain Health Assistant")
-st.caption("Educational assistant for brain health — not a medical diagnosis tool.")
-
-# Sidebar
-with st.sidebar:
-    st.header("⚙️ Settings & Tools")
-    if st.button("🗑️ Clear Chat"):
-        st.session_state.messages = []
-        st.session_state.query_count = 0
-        st.session_state.last_wiki = None
-        st.session_state.favorites = []
-        st.rerun()
-
-    st.subheader("⭐ Favorites")
-    if st.session_state.favorites:
-        for f in st.session_state.favorites:
-            st.markdown(f"- {f[:80]}...")
-    else:
-        st.caption("No favorites saved yet.")
-
-    if st.button("⬇️ Download Chat (TXT)"):
-        transcript = ""
-        for m in st.session_state.messages:
-            transcript += f"[{m['time'].strftime('%H:%M')}] {m['role'].title()}: {m['content']}\n\n"
-        st.download_button("Save File", transcript, "chat.txt")
-
-    st.subheader("❓ FAQs")
-    faq_prompts = {
-        "What is dementia?": "Dementia",
-        "What causes Alzheimer's?": "Alzheimer's disease",
-        "What is Parkinson's disease?": "Parkinson's disease",
-        "What is a stroke?": "Stroke",
-    }
-    for label, query in faq_prompts.items():
-        if st.button(label):
-            info, _ = query_wikipedia_article(query)
-            if info:
-                reply = f"**{info['title']}**\n\n{info['summary']}\n\nRead more: {info['url']}"
-                st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
-                st.rerun()
-
+# -----------------------------
 # Show chat history
+# -----------------------------
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
@@ -195,8 +180,6 @@ if prompt := st.chat_input("Ask me about brain health..."):
             st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now(), "meta": {"url": info["url"]}})
             with st.chat_message("assistant"):
                 st.markdown(reply)
-            if st.button("⭐ Save last answer"):
-                st.session_state.favorites.append(reply)
         else:
             categories = detect_health_categories(prompt)
             if categories:
