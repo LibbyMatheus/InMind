@@ -2,7 +2,6 @@ import streamlit as st
 import wikipedia
 import urllib.parse
 from datetime import datetime
-from PIL import Image
 
 # -----------------------------
 # Emergency detection
@@ -115,18 +114,16 @@ def offline_fallback(prompt: str) -> str:
 # -----------------------------
 st.set_page_config(page_title="InMind", page_icon="🧠", layout="centered")
 
+# Background color: jet black
 st.markdown(
     """
     <style>
-    body {
-        background-color: black;
-        color: white;
-    }
+    .main {background-color: #000000; color: #FFFFFF;}
     </style>
-    """,
-    unsafe_allow_html=True
+    """, unsafe_allow_html=True
 )
 
+# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.last_wiki = None
@@ -134,23 +131,24 @@ if "messages" not in st.session_state:
     st.session_state.favorites = []
 
 # Centered logo
-try:
-    logo = Image.open("LOGO_PATH.png")
-    st.image(logo, width=200, use_column_width=False)
-except FileNotFoundError:
-    st.markdown("<div style='text-align:center;color:red;'>LOGO_PATH.png not found</div>", unsafe_allow_html=True)
+LOGO_PATH = "LOGO_PATH.png"
+st.image(LOGO_PATH, width=200, use_container_width=False)
 
-st.caption("<div style='text-align:center;'>Educational assistant for brain health — not a medical diagnosis tool.</div>", unsafe_allow_html=True)
+# Disclaimer centered
+st.markdown("<div style='text-align:center;'>Educational assistant for brain health — not a medical diagnosis tool.</div>", unsafe_allow_html=True)
 
+# -----------------------------
 # Sidebar
+# -----------------------------
 with st.sidebar:
     st.header("⚙️ Settings & Tools")
+
     if st.button("🗑️ Clear Chat"):
         st.session_state.messages = []
         st.session_state.query_count = 0
         st.session_state.last_wiki = None
         st.session_state.favorites = []
-        st.experimental_rerun()
+        st.experimental_rerun()  # should now work
 
     st.subheader("⭐ Favorites")
     if st.session_state.favorites:
@@ -165,12 +163,12 @@ with st.sidebar:
             transcript += f"[{m['time'].strftime('%H:%M')}] {m['role'].title()}: {m['content']}\n\n"
         st.download_button("Save File", transcript, "chat.txt")
 
-    # FAQ placeholders
     st.subheader("❓ FAQs")
     faq_prompts = {
         "What is dementia?": "Dementia",
         "What causes Alzheimer's?": "Alzheimer's disease",
         "What is Parkinson's disease?": "Parkinson's disease",
+        # "What is a stroke?": "Stroke",  # removed as per previous request
     }
     for label, query in faq_prompts.items():
         if st.button(label):
@@ -180,13 +178,15 @@ with st.sidebar:
                 st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
                 st.experimental_rerun()
 
-# Chat history
+# -----------------------------
+# Show chat history
+# -----------------------------
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
 # -----------------------------
-# Handle new user input
+# Handle user input
 # -----------------------------
 if prompt := st.chat_input("Ask me about brain health..."):
     st.session_state.messages.append({"role": "user", "content": prompt, "time": datetime.now()})
@@ -195,7 +195,6 @@ if prompt := st.chat_input("Ask me about brain health..."):
 
     st.session_state.query_count += 1
 
-    # Emergency check
     if detect_emergency(prompt):
         reply = "🚨 Emergency detected. Please call 911 immediately. Do not wait."
         st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
@@ -209,8 +208,6 @@ if prompt := st.chat_input("Ask me about brain health..."):
             st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now(), "meta": {"url": info["url"]}})
             with st.chat_message("assistant"):
                 st.markdown(reply)
-            if st.button("⭐ Save last answer"):
-                st.session_state.favorites.append(reply)
         else:
             categories = detect_health_categories(prompt)
             if categories:
