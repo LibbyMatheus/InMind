@@ -36,11 +36,13 @@ def health_advice_block(categories):
     advice = []
     if "memory" in categories:
         advice.append(
-            "🧠 Memory issues detected:\n- Could be age-related or linked to conditions like Alzheimer’s.\n- Next: Consider seeing a neurologist.\n- Meanwhile: Encourage mental stimulation and daily routines."
+            "🧠 Memory issues detected:\n- Could be age-related or linked to conditions like Alzheimer’s.\n"
+            "- Next: See a neurologist.\n- Meanwhile: Encourage mental stimulation and daily routines."
         )
     if "movement" in categories:
         advice.append(
-            "🤲 Movement issues detected:\n- Possible Parkinson’s or motor-related disorder.\n- Next: Ask for a referral to a movement specialist.\n- Meanwhile: Gentle exercise may help."
+            "🤲 Movement issues detected:\n- Possible Parkinson’s or motor-related disorder.\n"
+            "- Next: Ask for a referral to a movement specialist.\n- Meanwhile: Gentle exercise may help."
         )
     if "stroke" in categories:
         advice.append(
@@ -48,7 +50,8 @@ def health_advice_block(categories):
         )
     if "vision" in categories:
         advice.append(
-            "👁️ Vision issues detected:\n- Could be linked to neurological conditions or eye health.\n- Next: Schedule an ophthalmology exam.\n- Meanwhile: Note any sudden changes and seek urgent help if vision is lost."
+            "👁️ Vision issues detected:\n- Could be linked to neurological conditions or eye health.\n"
+            "- Next: Schedule an ophthalmology exam.\n- Meanwhile: Note any sudden changes and seek urgent help if vision is lost."
         )
     return "\n\n".join(advice)
 
@@ -64,7 +67,7 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
             "stroke": "Stroke",
             "parkinson": "Parkinson's disease",
             "memory loss": "Amnesia",
-            "childhood dementia": "Childhood dementia",
+            "childhood dementia": "Childhood dementia"
         }
 
         lower_prompt = prompt.lower()
@@ -101,10 +104,8 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
         summary = wikipedia.summary(page.title, sentences=3)
         if len(summary) > max_chars:
             summary = summary[:max_chars].rsplit(".",1)[0] + "..."
-
         url = getattr(page, "url", f"https://en.wikipedia.org/wiki/{urllib.parse.quote(page.title)}")
         return {"title": page.title, "summary": summary, "url": url}, results
-
     except Exception:
         return None, None
 
@@ -124,14 +125,15 @@ if "messages" not in st.session_state:
     st.session_state.last_wiki = None
     st.session_state.query_count = 0
     st.session_state.favorites = []
+    st.session_state.selected_faq = None
 
-# Logo (centered, big)
+# Logo
 st.image("LOGO_PATH.png", use_container_width=False, width=250)
 
-# Disclaimer on left side
+# Disclaimer
 st.caption("Educational assistant for brain health — not a medical diagnosis tool.")
 
-# Sidebar FAQs
+# Sidebar
 with st.sidebar:
     st.header("⚙️ Settings & Tools")
     if st.button("🗑️ Clear Chat"):
@@ -139,7 +141,7 @@ with st.sidebar:
         st.session_state.query_count = 0
         st.session_state.last_wiki = None
         st.session_state.favorites = []
-        st.experimental_rerun()
+        st.session_state.selected_faq = None
 
     st.subheader("⭐ Favorites")
     if st.session_state.favorites:
@@ -157,17 +159,23 @@ with st.sidebar:
     st.subheader("❓ FAQs")
     faq_prompts = {
         "What is dementia?": "Dementia",
-        "What is Alzheimer’s?": "Alzheimer's disease",
+        "What is Alzheimer’s disease?": "Alzheimer's disease",
         "What is Parkinson's disease?": "Parkinson's disease",
         "What is childhood dementia?": "Childhood dementia",
     }
+
     for label, query in faq_prompts.items():
         if st.button(label):
-            info, _ = query_wikipedia_article(query)
-            if info:
-                reply = f"**{info['title']}**\n\n{info['summary']}\n\nRead more: {info['url']}"
-                st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
-                st.experimental_rerun()
+            st.session_state.selected_faq = label
+
+# Display FAQ if selected
+if st.session_state.selected_faq:
+    faq_query = faq_prompts[st.session_state.selected_faq]
+    info, _ = query_wikipedia_article(faq_query)
+    if info:
+        reply = f"**{info['title']}**\n\n{info['summary']}\n\nRead more: {info['url']}"
+        st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+    st.session_state.selected_faq = None
 
 # Show chat history
 for m in st.session_state.messages:
@@ -192,7 +200,7 @@ if prompt := st.chat_input("Ask me about brain health..."):
         if info:
             reply = f"I found **{info['title']}** on Wikipedia:\n\n{info['summary']}\n\nRead more: {info['url']}"
             st.session_state.last_wiki = info['title']
-            st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+            st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now(), "meta": {"url": info["url"]}})
             with st.chat_message("assistant"):
                 st.markdown(reply)
             if st.button("⭐ Save last answer"):
