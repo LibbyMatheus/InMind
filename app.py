@@ -60,7 +60,6 @@ def health_advice_block(categories):
 # -----------------------------
 def query_wikipedia_article(prompt: str, max_chars: int = 900):
     try:
-        # Canonical topics
         canonical_topics = {
             "dementia": "Dementia",
             "alzheimer": "Alzheimer's disease",
@@ -82,7 +81,6 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
                 except Exception:
                     pass
 
-        # Normal search
         results = wikipedia.search(prompt, results=3)
         if not results:
             return None, None
@@ -181,11 +179,14 @@ with st.sidebar:
                 reply = (
                     f"**{info['title']}**\n\n{info['summary']}\n\n"
                     f"Read more: {info['url']}\n\n"
-                    "What to do next:\n"
-                    "- Consult a healthcare professional for guidance.\n"
+                    "What to do next:\n- Consult a healthcare professional for guidance.\n"
                     "- Visit the resources page for caregiving tips, brain exercises, and questions to ask your doctor."
                 )
-                st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": reply,
+                    "time": datetime.now()
+                })
 
 # -----------------------------
 # Show chat history
@@ -234,4 +235,6 @@ if prompt := st.chat_input("Ask me about brain health..."):
                     st.markdown(advice_text)
             else:
                 reply = offline_fallback(prompt)
-                st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()
+                st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+                with st.chat_message("assistant"):
+                    st.markdown(reply)
