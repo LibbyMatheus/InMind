@@ -4,37 +4,6 @@ import urllib.parse
 from datetime import datetime
 
 # -----------------------------
-# Page config
-# -----------------------------
-st.set_page_config(page_title="InMind", page_icon="🧠", layout="centered")
-
-# Set background color to jet black
-st.markdown(
-    """
-    <style>
-    body {
-        background-color: #000000;
-        color: #FFFFFF;
-    }
-    .stSidebar {
-        background-color: #111111;
-        color: #FFFFFF;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# -----------------------------
-# Centered logo
-# -----------------------------
-LOGO_PATH = "LOGO_PATH.png"  # Make sure this file is in the same folder as app.py
-st.markdown(
-    f"<div style='text-align: center;'><img src='{LOGO_PATH}' width='200'></div>",
-    unsafe_allow_html=True
-)
-
-# -----------------------------
 # Emergency detection
 # -----------------------------
 def detect_emergency(text: str) -> bool:
@@ -84,7 +53,7 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
             "dementia": "Dementia",
             "alzheimer": "Alzheimer's disease",
             "alzheimers": "Alzheimer's disease",
-            "stroke": "Stroke",
+            "stroke": "Stroke (medicine)",
             "parkinson": "Parkinson's disease",
             "memory loss": "Amnesia",
         }
@@ -97,11 +66,7 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
                     summary = wikipedia.summary(page_obj.title, sentences=3)
                     if len(summary) > max_chars:
                         summary = summary[:max_chars].rsplit(".",1)[0] + "..."
-                    return {
-                        "title": page_obj.title,
-                        "summary": summary,
-                        "url": page_obj.url
-                    }, [page_obj.title]
+                    return {"title": page_obj.title, "summary": summary, "url": page_obj.url}, [page_obj.title]
                 except Exception:
                     pass
 
@@ -110,12 +75,6 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
             return None, None
 
         title = results[0]
-        if any(word in title.lower() for word in ["childhood", "variant", "subtype", "familial"]):
-            for candidate in results[1:]:
-                if not any(w in candidate.lower() for w in ["childhood", "variant", "subtype", "familial"]):
-                    title = candidate
-                    break
-
         try:
             page = wikipedia.page(title, auto_suggest=False)
         except wikipedia.DisambiguationError as e:
@@ -134,20 +93,69 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
     except Exception:
         return None, None
 
-# -----------------------------
-# Offline fallback
-# -----------------------------
 def offline_fallback(prompt: str) -> str:
     return "Sorry, I couldn’t find reliable information. Please consult a trusted medical source."
 
 # -----------------------------
-# Initialize session state
+# Streamlit app
 # -----------------------------
+st.set_page_config(page_title="InMind", page_icon="🧠", layout="centered")
+
+# Apply black background with white text
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-color: #000000;
+        color: #FFFFFF;
+    }
+    .stTextInput>div>div>input {
+        color: #000000;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.last_wiki = None
     st.session_state.query_count = 0
     st.session_state.favorites = []
+
+# Centered logo only
+LOGO_PATH = "LOGO_PATH.png"
+st.markdown(
+    f"<div style='text-align:center;'><img src='{LOGO_PATH}' width='200'></div>",
+    unsafe_allow_html=True
+)
+
+st.caption("Educational assistant for brain health — not a medical diagnosis tool.")
+
+# -----------------------------
+# Sidebar
+# -----------------------------
+with st.sidebar:
+    st.header("⚙️ Settings & Tools")
+    if st.button("🗑️ Clear Chat"):
+        st.session_state.messages = []
+        st.session_state.query_count = 0
+        st.session_state.last_wiki = None
+        st.session_state.favorites = []
+        st.experimental_rerun()
+
+    st.subheader("⭐ Favorites")
+    if st.session_state.favorites:
+        for f in st.session_state.favorites:
+            st.markdown(f"- {f[:80]}...")
+    else:
+        st.caption("No favorites saved yet.")
+
+    if st.button("⬇️ Download Chat (TXT)"):
+        transcript = ""
+        for m in st.session_state.messages:
+            transcript += f"[{m['time'].strftime('%H:%M')}] {m['role'].title()}: {m['content']}\n\n"
+        st.download_button("Save File", transcript, "chat.txt")
 
 # -----------------------------
 # Show chat history
@@ -180,6 +188,8 @@ if prompt := st.chat_input("Ask me about brain health..."):
             st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now(), "meta": {"url": info["url"]}})
             with st.chat_message("assistant"):
                 st.markdown(reply)
+            if st.button("⭐ Save last answer"):
+                st.session_state.favorites.append(reply)
         else:
             categories = detect_health_categories(prompt)
             if categories:
@@ -193,3 +203,4 @@ if prompt := st.chat_input("Ask me about brain health..."):
                 st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
                 with st.chat_message("assistant"):
                     st.markdown(reply)
+                    
