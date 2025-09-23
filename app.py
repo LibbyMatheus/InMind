@@ -1,82 +1,100 @@
 import streamlit as st
 import wikipedia
 
-# Page config
+# Set page config
 st.set_page_config(page_title="InMind", layout="wide")
 
-# --- Centered Logo ---
-LOGO_PATH = "LOGO_PATH.png"
+# Greeting
 st.markdown(
-    f"""
-    <div style="display: flex; justify-content: center; margin-bottom: 20px;">
-        <img src="app://{LOGO_PATH}" alt="InMind Logo" style="max-width: 300px;">
-    </div>
-    """,
-    unsafe_allow_html=True,
+    "<h4 style='text-align: center;'>Welcome to InMind — your neuroscience and healthcare companion.</h4>",
+    unsafe_allow_html=True
 )
 
-# --- Sidebar FAQs ---
-st.sidebar.title("Common Questions")
-faq_questions = [
-    "What is dementia?",
-    "What is Alzheimer's disease?",
-    "What are early symptoms of dementia?",
-    "What is Parkinson's disease?",
-    "What are prevention methods for Alzheimer's?"
-]
-faq_choice = st.sidebar.radio("Select a question:", faq_questions, index=None)
+# Centered logo (no title)
+LOGO_PATH = "LOGO_PATH.png"
+st.markdown(
+    f"<div style='text-align: center; margin-bottom:20px;'><img src='{LOGO_PATH}' width='250'></div>",
+    unsafe_allow_html=True
+)
 
-# --- Chat storage ---
+# Sidebar FAQs
+st.sidebar.header("FAQs")
+FAQS = {
+    "What is dementia?": "dementia",
+    "What is Alzheimer’s disease?": "Alzheimer's disease",
+    "What is Parkinson’s disease?": "Parkinson's disease",
+    "What is ALS?": "Amyotrophic lateral sclerosis",
+}
+
+faq_choice = st.sidebar.radio("Choose a question:", list(FAQS.keys()), index=None)
+
+# Chat messages storage
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
-# --- Wikipedia Search (medical/science focus) ---
-def search_wikipedia(query):
+# --- Synonyms for detection ---
+CAUSE_SYNONYMS = ["cause", "causes", "etiology", "risk factor", "risk factors", "origin", "trigger", "triggers", "reason", "reasons", "mechanism"]
+PREVENT_SYNONYMS = ["prevent", "prevention", "preventable", "avoiding", "prophylaxis", "treatment", "therapy", "management", "intervention", "reduce risk"]
+
+# --- Wikipedia search ---
+def get_wikipedia_answer(query):
     try:
-        # Search Wikipedia
-        results = wikipedia.search(query)
-        if not results:
-            return None
+        query_lower = query.lower()
 
-        # Prefer medical/scientific topics
-        for result in results:
-            if any(keyword in result.lower() for keyword in ["disease", "syndrome", "medicine", "disorder", "health", "neuro", "condition"]):
-                return wikipedia.summary(result, sentences=3, auto_suggest=False, redirect=True)
+        # Force medical stroke
+        if "stroke" in query_lower:
+            query = "Stroke (medicine)"
 
-        # Fallback: first result
-        return wikipedia.summary(results[0], sentences=3, auto_suggest=False, redirect=True)
-    except Exception:
-        return None
+        # Detect cause-related queries
+        if any(word in query_lower for word in CAUSE_SYNONYMS):
+            search_results = wikipedia.search(query, results=1)
+            if not search_results:
+                return "Sorry, I couldn’t find a clear cause."
+            page = wikipedia.page(search_results[0])
+            for section in page.content.split("=="):
+                if any(word in section.lower() for word in CAUSE_SYNONYMS):
+                    return section.strip()
+            return wikipedia.summary(page.title, sentences=3)
 
-# --- Handle FAQ selection ---
+        # Detect prevention/treatment/management queries
+        if any(word in query_lower for word in PREVENT_SYNONYMS):
+            search_results = wikipedia.search(query, results=1)
+            if not search_results:
+                return "Sorry, I couldn’t find clear prevention/treatment information."
+            page = wikipedia.page(search_results[0])
+            for section in page.content.split("=="):
+                if any(word in section.lower() for word in PREVENT_SYNONYMS):
+                    return section.strip()
+            return wikipedia.summary(page.title, sentences=3)
+
+        # General / subcategory queries
+        search_results = wikipedia.search(query, results=3)
+        if search_results:
+            for result in search_results:
+                if all(word in result.lower() for word in query_lower.split()):
+                    return wikipedia.summary(result, sentences=3)
+            return wikipedia.summary(search_results[0], sentences=3)
+
+        return "Sorry, I couldn’t find an answer for that."
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+# --- Display FAQ ---
 if faq_choice:
-    answer = search_wikipedia(faq_choice)
-    if answer:
-        st.session_state["messages"].append(("user", faq_choice))
-        st.session_state["messages"].append(("bot", answer))
-    else:
-        st.session_state["messages"].append(("user", faq_choice))
-        st.session_state["messages"].append(("bot", "Sorry, I couldn’t find a medical or scientific answer for that."))
+    st.subheader(faq_choice)
+    answer = get_wikipedia_answer(FAQS[faq_choice])
+    st.write(answer)
 
-# --- Chat input ---
-user_input = st.chat_input("Ask InMind about symptoms, conditions, or prevention...")
-if user_input:
-    answer = search_wikipedia(user_input)
-    if answer:
-        st.session_state["messages"].append(("user", user_input))
-        st.session_state["messages"].append(("bot", answer))
-    else:
-        st.session_state["messages"].append(("user", user_input))
-        st.session_state["messages"].append(("bot", "Sorry, I couldn’t find a medical or scientific answer for that."))
+# --- User input ---
+user_query = st.text_input("Ask InMind anything:")
 
-# --- Display messages ---
-for sender, message in st.session_state["messages"]:
-    if sender == "user":
-        st.chat_message("user").write(message)
-    else:
-        st.chat_message("assistant").write(message)
+if user_query:
+    response = get_wikipedia_answer(user_query)
+    st.subheader("Answer:")
+    st.write(response)
 
-# --- Clear Chat Button ---
+# --- Clear chat ---
 if st.button("Clear Chat"):
     st.session_state["messages"] = []
     st.rerun()
@@ -85,8 +103,8 @@ if st.button("Clear Chat"):
 st.markdown(
     """
     <div style="text-align: center; margin-top: 30px; font-size: 13px; color: gray;">
-        Disclaimer: InMind is not a substitute for professional medical advice. Always consult a healthcare provider for serious concerns.
+        Disclaimer: InMind provides educational information only. It is not a substitute for professional medical advice.
     </div>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
