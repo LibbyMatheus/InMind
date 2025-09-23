@@ -45,7 +45,7 @@ def health_advice_block(categories):
     return "\n\n".join(advice)
 
 # -----------------------------
-# Wikipedia query
+# Wikipedia query with medical filtering
 # -----------------------------
 def query_wikipedia_article(prompt: str, max_chars: int = 900):
     try:
@@ -61,20 +61,17 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
         lower_prompt = prompt.lower()
         for key, page in canonical_topics.items():
             if key in lower_prompt:
-                try:
-                    page_obj = wikipedia.page(page, auto_suggest=False)
-                    summary = wikipedia.summary(page_obj.title, sentences=3)
-                    if len(summary) > max_chars:
-                        summary = summary[:max_chars].rsplit(".",1)[0] + "..."
-                    return {
-                        "title": page_obj.title,
-                        "summary": summary,
-                        "url": page_obj.url
-                    }, [page_obj.title]
-                except Exception:
-                    pass
+                page_obj = wikipedia.page(page, auto_suggest=False)
+                summary = wikipedia.summary(page_obj.title, sentences=3)
+                if len(summary) > max_chars:
+                    summary = summary[:max_chars].rsplit(".",1)[0] + "..."
+                return {
+                    "title": page_obj.title,
+                    "summary": summary,
+                    "url": page_obj.url
+                }, [page_obj.title]
 
-        results = wikipedia.search(prompt, results=3)
+        results = wikipedia.search(prompt + " medicine", results=3)
         if not results:
             return None, None
 
@@ -104,6 +101,22 @@ def query_wikipedia_article(prompt: str, max_chars: int = 900):
         return None, None
 
 # -----------------------------
+# Format response with What to do next
+# -----------------------------
+def format_medical_response(info):
+    if not info:
+        return offline_fallback("")
+    base_text = f"**{info['title']}**\n\n{info['summary']}\n\nRead more: {info['url']}"
+    next_steps = (
+        "\n\n**What to do next:**\n"
+        "- Schedule an appointment with a relevant specialist (neurologist, ophthalmologist, etc.)\n"
+        "- Prepare questions for your doctor using our Resources page\n"
+        "- Explore recommended at-home brain exercises and daily routines\n"
+        "- Review caregiving tips if assisting someone diagnosed\n"
+    )
+    return base_text + next_steps
+
+# -----------------------------
 # Offline fallback
 # -----------------------------
 def offline_fallback(prompt: str) -> str:
@@ -114,13 +127,14 @@ def offline_fallback(prompt: str) -> str:
 # -----------------------------
 st.set_page_config(page_title="InMind", page_icon="🧠", layout="centered")
 
-# Background color: jet black
+# Background color
 st.markdown(
     """
     <style>
-    .main {background-color: #000000; color: #FFFFFF;}
+    .stApp {background-color: #000000; color: white;}
     </style>
-    """, unsafe_allow_html=True
+    """,
+    unsafe_allow_html=True
 )
 
 # Session state
@@ -130,25 +144,26 @@ if "messages" not in st.session_state:
     st.session_state.query_count = 0
     st.session_state.favorites = []
 
-# Centered logo
+# Logo centered
 LOGO_PATH = "LOGO_PATH.png"
-st.image(LOGO_PATH, width=200, use_container_width=False)
+st.image(LOGO_PATH, use_column_width=False, width=200)
 
-# Disclaimer centered
-st.markdown("<div style='text-align:center;'>Educational assistant for brain health — not a medical diagnosis tool.</div>", unsafe_allow_html=True)
+# Disclaimer left-aligned
+st.markdown("<p style='text-align:left'>Educational assistant for brain health — not a medical diagnosis tool.</p>", unsafe_allow_html=True)
 
 # -----------------------------
-# Sidebar
+# Sidebar with FAQs and tools
 # -----------------------------
 with st.sidebar:
     st.header("⚙️ Settings & Tools")
 
+    # Clear chat button
     if st.button("🗑️ Clear Chat"):
-        st.session_state.messages = []
+        st.session_state.messages.clear()
         st.session_state.query_count = 0
         st.session_state.last_wiki = None
-        st.session_state.favorites = []
-        st.experimental_rerun()  # should now work
+        st.session_state.favorites.clear()
+        st.success("Chat cleared!")
 
     st.subheader("⭐ Favorites")
     if st.session_state.favorites:
@@ -157,26 +172,21 @@ with st.sidebar:
     else:
         st.caption("No favorites saved yet.")
 
-    if st.button("⬇️ Download Chat (TXT)"):
-        transcript = ""
-        for m in st.session_state.messages:
-            transcript += f"[{m['time'].strftime('%H:%M')}] {m['role'].title()}: {m['content']}\n\n"
-        st.download_button("Save File", transcript, "chat.txt")
-
+    # FAQs (medical-only answers)
     st.subheader("❓ FAQs")
     faq_prompts = {
         "What is dementia?": "Dementia",
-        "What causes Alzheimer's?": "Alzheimer's disease",
+        "What causes Alzheimer's?": "Alzheimer's disease causes",
+        "How to prevent Alzheimer's?": "Alzheimer's disease prevention",
         "What is Parkinson's disease?": "Parkinson's disease",
-        # "What is a stroke?": "Stroke",  # removed as per previous request
+        "Management of Parkinson's disease?": "Parkinson's disease management"
     }
     for label, query in faq_prompts.items():
         if st.button(label):
             info, _ = query_wikipedia_article(query)
-            if info:
-                reply = f"**{info['title']}**\n\n{info['summary']}\n\nRead more: {info['url']}"
-                st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
-                st.experimental_rerun()
+            reply = format_medical_response(info)
+            st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+            st.experimental_rerun()
 
 # -----------------------------
 # Show chat history
@@ -186,7 +196,7 @@ for m in st.session_state.messages:
         st.markdown(m["content"])
 
 # -----------------------------
-# Handle user input
+# Handle new user input
 # -----------------------------
 if prompt := st.chat_input("Ask me about brain health..."):
     st.session_state.messages.append({"role": "user", "content": prompt, "time": datetime.now()})
@@ -195,6 +205,7 @@ if prompt := st.chat_input("Ask me about brain health..."):
 
     st.session_state.query_count += 1
 
+    # Emergency check
     if detect_emergency(prompt):
         reply = "🚨 Emergency detected. Please call 911 immediately. Do not wait."
         st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
@@ -203,7 +214,7 @@ if prompt := st.chat_input("Ask me about brain health..."):
     else:
         info, results = query_wikipedia_article(prompt)
         if info:
-            reply = f"I found **{info['title']}** on Wikipedia:\n\n{info['summary']}\n\nRead more: {info['url']}"
+            reply = format_medical_response(info)
             st.session_state.last_wiki = info['title']
             st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now(), "meta": {"url": info["url"]}})
             with st.chat_message("assistant"):
@@ -218,6 +229,4 @@ if prompt := st.chat_input("Ask me about brain health..."):
                     st.markdown(advice_text)
             else:
                 reply = offline_fallback(prompt)
-                st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
-                with st.chat_message("assistant"):
-                    st.markdown(reply)
+                st.session_state.messages.append({"role": "assistant
