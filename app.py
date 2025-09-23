@@ -1,73 +1,92 @@
 import streamlit as st
 import wikipedia
-import requests
 
-# Set page config
+# Page config
 st.set_page_config(page_title="InMind", layout="wide")
 
-# Centered logo instead of title
+# --- Centered Logo ---
 LOGO_PATH = "LOGO_PATH.png"
 st.markdown(
-    f"<div style='text-align: center;'><img src='{LOGO_PATH}' width='250'></div>",
-    unsafe_allow_html=True
+    f"""
+    <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+        <img src="app://{LOGO_PATH}" alt="InMind Logo" style="max-width: 300px;">
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-# Sidebar FAQs
-st.sidebar.header("FAQs")
-FAQS = {
-    "What is dementia?": "dementia",
-    "What is Alzheimer’s disease?": "Alzheimer's disease",
-    "What is a stroke?": "Stroke (medicine)",
-    "What is Parkinson’s disease?": "Parkinson's disease",
-    "What is ALS?": "Amyotrophic lateral sclerosis",
-}
+# --- Sidebar FAQs ---
+st.sidebar.title("Common Questions")
+faq_questions = [
+    "What is dementia?",
+    "What is Alzheimer's disease?",
+    "What are early symptoms of dementia?",
+    "What is Parkinson's disease?",
+    "What are prevention methods for Alzheimer's?"
+]
+faq_choice = st.sidebar.radio("Select a question:", faq_questions, index=None)
 
-faq_choice = st.sidebar.radio("Choose a question:", list(FAQS.keys()))
+# --- Chat storage ---
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
 
-# Query processor
-def get_wikipedia_answer(query):
+# --- Wikipedia Search (medical/science focus) ---
+def search_wikipedia(query):
     try:
-        # Prioritize medical pages
-        if "stroke" in query.lower():
-            query = "Stroke (medicine)"
-        
-        # If user asks for causes
-        if "cause" in query.lower() or "etiology" in query.lower():
-            search_results = wikipedia.search(query, results=1)
-            if not search_results:
-                return "Sorry, I couldn’t find a clear cause."
-            page_title = search_results[0]
-            page = wikipedia.page(page_title)
-            
-            # Try to extract causes section
-            for section in page.content.split("=="):
-                if "cause" in section.lower() or "etiology" in section.lower():
-                    return section.strip()
-            return wikipedia.summary(page_title, sentences=3)
+        # Search Wikipedia
+        results = wikipedia.search(query)
+        if not results:
+            return None
 
-        # Subcategories / niche queries
-        search_results = wikipedia.search(query, results=3)
-        if search_results:
-            for result in search_results:
-                if any(word in result.lower() for word in query.lower().split()):
-                    return wikipedia.summary(result, sentences=3)
-            return wikipedia.summary(search_results[0], sentences=3)
+        # Prefer medical/scientific topics
+        for result in results:
+            if any(keyword in result.lower() for keyword in ["disease", "syndrome", "medicine", "disorder", "health", "neuro", "condition"]):
+                return wikipedia.summary(result, sentences=3, auto_suggest=False, redirect=True)
 
-        return "Sorry, I couldn’t find an answer for that."
+        # Fallback: first result
+        return wikipedia.summary(results[0], sentences=3, auto_suggest=False, redirect=True)
+    except Exception:
+        return None
 
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-# Display FAQ or user query
+# --- Handle FAQ selection ---
 if faq_choice:
-    st.subheader(faq_choice)
-    answer = get_wikipedia_answer(FAQS[faq_choice])
-    st.write(answer)
+    answer = search_wikipedia(faq_choice)
+    if answer:
+        st.session_state["messages"].append(("user", faq_choice))
+        st.session_state["messages"].append(("bot", answer))
+    else:
+        st.session_state["messages"].append(("user", faq_choice))
+        st.session_state["messages"].append(("bot", "Sorry, I couldn’t find a medical or scientific answer for that."))
 
-# User input
-user_query = st.text_input("Ask InMind anything:")
+# --- Chat input ---
+user_input = st.chat_input("Ask InMind about symptoms, conditions, or prevention...")
+if user_input:
+    answer = search_wikipedia(user_input)
+    if answer:
+        st.session_state["messages"].append(("user", user_input))
+        st.session_state["messages"].append(("bot", answer))
+    else:
+        st.session_state["messages"].append(("user", user_input))
+        st.session_state["messages"].append(("bot", "Sorry, I couldn’t find a medical or scientific answer for that."))
 
-if user_query:
-    response = get_wikipedia_answer(user_query)
-    st.subheader("Answer:")
-    st.write(response)
+# --- Display messages ---
+for sender, message in st.session_state["messages"]:
+    if sender == "user":
+        st.chat_message("user").write(message)
+    else:
+        st.chat_message("assistant").write(message)
+
+# --- Clear Chat Button ---
+if st.button("Clear Chat"):
+    st.session_state["messages"] = []
+    st.rerun()
+
+# --- Disclaimer ---
+st.markdown(
+    """
+    <div style="text-align: center; margin-top: 30px; font-size: 13px; color: gray;">
+        Disclaimer: InMind is not a substitute for professional medical advice. Always consult a healthcare provider for serious concerns.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
