@@ -1,128 +1,140 @@
 import streamlit as st
+import wikipedia
+import urllib.parse
+from datetime import datetime
 
-# ---------------------
-# Page Config
-# ---------------------
-st.set_page_config(page_title="InMind AI", layout="wide")
-
-# ---------------------
-# Logo (centered)
-# ---------------------
-st.markdown(
-    """
-    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 20px;">
-        <img src="LOGO_PATH.png" alt="Logo" style="max-width: 250px;">
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ---------------------
-# Custom CSS for chat bubbles
-# ---------------------
-st.markdown(
-    """
-    <style>
-    .chat-bubble {
-        display: inline-block;
-        background-color: #f1f1f1;
-        padding: 12px 18px;
-        border-radius: 20px;
-        margin: 6px 6px 6px 0;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-        border: 1px solid #ddd;
-    }
-    .chat-bubble:hover {
-        background-color: #e0e0e0;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ---------------------
-# Initialize session state
-# ---------------------
-if "messages" not in st.session_state:
-    st.session_state["messages"] = [
-        ("InMind AI", "👋 Hi, I’m InMind AI. I can share information about brain health, dementia, and Alzheimer’s. What would you like to know?")
-    ]
-
-# ---------------------
-# FAQ Quick Replies (clickable bubbles)
-# ---------------------
-st.markdown("### Commonly Asked Questions")
-
-faq_list = [
-    "What are early signs of Alzheimer’s?",
-    "How can I keep my brain healthy?",
-    "What is dementia?",
-    "Are memory lapses normal with aging?",
-    "What lifestyle changes can reduce risk?",
-]
-
-# Create clickable FAQ bubbles
-cols = st.columns(len(faq_list))
-faq_clicked = None
-for i, faq in enumerate(faq_list):
-    if cols[i].button(faq, key=f"faq_{i}"):
-        faq_clicked = faq
-    cols[i].markdown(f"<div class='chat-bubble'>{faq}</div>", unsafe_allow_html=True)
-
-# ---------------------
-# Chatbot Section
-# ---------------------
-st.subheader("Chat with InMind AI")
-
-# User input
-user_input = st.text_input("You:", placeholder="Type your question here...")
-
-# Use FAQ as input if clicked
-if faq_clicked:
-    user_input = faq_clicked
-
-# Predefined responses
-responses = {
-    "What are early signs of Alzheimer’s?": "Early signs may include memory loss, difficulty completing familiar tasks, confusion with time/place, and changes in mood or personality.",
-    "How can I keep my brain healthy?": "Regular exercise, balanced diet, social engagement, quality sleep, and mental stimulation are all key for brain health.",
-    "What is dementia?": "Dementia is a general term for conditions that impair memory, thinking, and decision-making, such as Alzheimer’s disease.",
-    "Are memory lapses normal with aging?": "Some memory lapses can be normal with age, but frequent or severe issues may need medical evaluation.",
-    "What lifestyle changes can reduce risk?": "Staying active, avoiding smoking, eating a healthy diet, and managing blood pressure and diabetes can reduce risk."
+# -----------------------------
+# Canonical medical bias
+# -----------------------------
+CANONICAL_TOPICS = {
+    "stroke": "Stroke",
+    "strokes": "Stroke",
+    "parkinson": "Parkinson's disease",
+    "dementia": "Dementia",
+    "alzheimer": "Alzheimer's disease",
+    "alzheimers": "Alzheimer's disease",
+    "memory loss": "Amnesia",
+    "seizure": "Seizure",
+    "heart attack": "Myocardial infarction"
 }
 
-# Generate response
-if user_input:
-    st.session_state["messages"].append(("You", user_input))
-    response = responses.get(
-        user_input,
-        "Sorry, I couldn’t find information on that. Please try another term or consult a healthcare professional."
-    )
-    st.session_state["messages"].append(("InMind AI", response))
+# -----------------------------
+# Wikipedia query
+# -----------------------------
+def query_wikipedia_article(prompt: str, max_chars: int = 900):
+    try:
+        lower_prompt = prompt.lower()
 
-# Display chat history
-for sender, msg in st.session_state["messages"]:
-    if sender == "You":
-        st.markdown(f"**You:** {msg}")
-    else:
-        st.markdown(f"**🤖 InMind AI:** {msg}")
+        # ✅ Bias toward medical canonical topics
+        for key, page in CANONICAL_TOPICS.items():
+            if key in lower_prompt:
+                try:
+                    page_obj = wikipedia.page(page, auto_suggest=False)
+                    summary = wikipedia.summary(page_obj.title, sentences=3)
+                    if len(summary) > max_chars:
+                        summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
+                    return {
+                        "title": page_obj.title,
+                        "summary": summary,
+                        "url": page_obj.url
+                    }
+                except Exception:
+                    pass  # fallback
 
-# Clear chat button
-if st.button("Clear Chat"):
-    st.session_state["messages"] = [
-        ("InMind AI", " Hi, I’m InMind AI. I can share information about brain health, dementia, and Alzheimer’s. What would you like to know?")
-    ]
-    st.rerun()
+        # ✅ Normal Wikipedia search
+        results = wikipedia.search(prompt, results=3)
+        if not results:
+            return None
 
-# ---------------------
+        title = results[0]
+
+        # ✅ Avoid irrelevant niche subtypes unless user asked
+        if any(word in title.lower() for word in ["childhood", "variant", "subtype", "familial"]):
+            for candidate in results[1:]:
+                if not any(w in candidate.lower() for w in ["childhood", "variant", "subtype", "familial"]):
+                    title = candidate
+                    break
+
+        try:
+            page = wikipedia.page(title, auto_suggest=False)
+        except wikipedia.DisambiguationError as e:
+            title = e.options[0] if e.options else title
+            page = wikipedia.page(title)
+        except Exception:
+            page = wikipedia.page(title)
+
+        summary = wikipedia.summary(page.title, sentences=3)
+        if len(summary) > max_chars:
+            summary = summary[:max_chars].rsplit(".", 1)[0] + "..."
+
+        url = getattr(page, "url", f"https://en.wikipedia.org/wiki/{urllib.parse.quote(page.title)}")
+        return {"title": page.title, "summary": summary, "url": url}
+
+    except Exception:
+        return None
+
+# -----------------------------
+# Streamlit app
+# -----------------------------
+st.set_page_config(page_title="InMind", page_icon="🧠", layout="wide")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Centered logo
+st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+st.image("LOGO_PATH.png", width=180)
+st.markdown("</div>", unsafe_allow_html=True)
+
 # Disclaimer (centered)
-# ---------------------
 st.markdown(
-    """
-    <div style="text-align: center; margin-top: 30px; font-size: 12px; color: gray;">
-         This tool is for informational purposes only and is not a substitute for professional medical advice.  
-        Always consult a qualified healthcare provider with questions regarding your health.
-    </div>
-    """,
+    "<div style='text-align:center; color:gray; font-size:14px;'>"
+    "⚠️ Educational assistant for brain health — not a medical diagnosis tool."
+    "</div><br>",
     unsafe_allow_html=True,
 )
+
+# Sidebar for FAQs
+with st.sidebar:
+    st.header("❓ FAQs")
+    faq_prompts = {
+        "What is dementia?": "Dementia",
+        "What causes Alzheimer's?": "Alzheimer's disease",
+        "What is Parkinson's disease?": "Parkinson's disease",
+        "What is a stroke?": "Stroke",
+    }
+    for label, query in faq_prompts.items():
+        if st.button(label):
+            info = query_wikipedia_article(query)
+            if info:
+                reply = f"**{info['title']}**\n\n{info['summary']}\n\n🔗 [Read more]({info['url']})"
+            else:
+                reply = "Sorry, I couldn’t find information on that."
+            st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+            st.rerun()
+
+    st.divider()
+    if st.button("🗑️ Clear Chat"):
+        st.session_state.messages = []
+        st.rerun()
+
+# Show chat history
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+
+# User input
+if prompt := st.chat_input("Ask me about brain health... or any topic!"):
+    st.session_state.messages.append({"role": "user", "content": prompt, "time": datetime.now()})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    info = query_wikipedia_article(prompt)
+    if info:
+        reply = f"I found **{info['title']}** on Wikipedia:\n\n{info['summary']}\n\n🔗 [Read more]({info['url']})"
+    else:
+        reply = "Sorry, I couldn’t find an answer for that. Please try another term or consult a trusted medical source."
+
+    st.session_state.messages.append({"role": "assistant", "content": reply, "time": datetime.now()})
+    with st.chat_message("assistant"):
+        st.markdown(reply)
